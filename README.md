@@ -9,7 +9,7 @@ Scalco, Andrea (2019, October 18). “An agent-based model to simulate meat cons
 
 ## Associated Publication(s)
 
-Scalco, A., Macdiarmid, J. I., Craig, T., Whybrow, S. & Horgan, G. W. (2019). An agent-based model to simulate meat consumption behaviour of consumers in Britain. Journal of Artificial Societies and Social Simulation, 22(4), 8 (in press on the 18.10.2019).
+[Scalco, A., Macdiarmid, J. I., Craig, T., Whybrow, S. & Horgan, G. W. (2019). An agent-based model to simulate meat consumption behaviour of consumers in Britain. Journal of Artificial Societies and Social Simulation, 22(4), 8.](http://jasss.soc.surrey.ac.uk/22/4/8.html)
 
 ## Notes
 
