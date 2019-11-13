@@ -1,0 +1,4517 @@
+; MeatNet 1.0
+; Working on NetLogo v.5.3.1
+
+;; Family members ties
+undirected-link-breed [ family-links family-link ]
+;; Co-workers ties
+undirected-link-breed [ work-links work-link ]
+
+globals
+[
+  ;;..................................................
+  ;; Globlar variables related to newtork management
+  ;;..................................................
+  f-size                               ;; Number of family members
+  N-families                           ;; Overall number of families
+  family-ID                            ;; Members' family identification number
+  family-SN-density                    ;; Density of family networks
+  N-teams                              ;; Overall number of teams
+  team-ID                              ;; Members' team identification number
+  work-SN-density                      ;; Density of family networks
+  work-SN-clustering-coefficient       ;; Global clustering coefficient of the work network
+  ;;--------------------------------------------------
+  ;; Variables related to time management
+  ;;--------------------------------------------------
+  current.year                         ;; Current year
+  weeks                                ;; Number of weeks
+  days                                 ;; Number of days since the beginning of the simulation
+  current.day                          ;; Current day (in words)
+  eating.episodes                      ;; Number of eating episode (1=Breakfast, 2=Lunch, 3=Dinner)
+  current.meal                         ;; Current phase of the day (Morning/Breakfast, Afternoon/Lunch, Evening/Dinner)
+  actual.gamma.hlt                     ;; Decay function of a social-norm campaign based on health impact
+  actual.gamma.env                     ;; Decay function of a social-norm campaign based on env costs
+  actual.gamma.awe                     ;; Decay function of a social-norm campaign based on animal welfare
+  SNI.week.counter
+  ;;--------------------------------------------------
+  ;; Coefficients employed in the individual DM process
+  ;;--------------------------------------------------
+  b0                                   ;; Regression constant
+  b1                                   ;; beta Sex
+  b2                                   ;; beta Age
+  b3                                   ;; beta Env concerns
+  b4                                   ;; beta Health concerns
+  b5                                   ;; beta Animal Welfare concerns
+  b6                                   ;; beta Living cost (i.e. price sensitivity)
+  ;;--------------------------------------------------
+  ;; Used to read csv files
+  ;;--------------------------------------------------
+  csv_data                             ;; Store directory of the csv file
+  number_people                        ;; Used to count number of records in csv files
+  ;;--------------------------------------------------
+  ;; Used to monitor and report data about amount of eaten meat
+  ;;--------------------------------------------------
+  meat.price.index
+  system.gMeat.meate                   ;; Amount of meat consumed by the society (i.e. only meat eaters)
+  system.gMeat.young                   ;; Amount of meat consumed by young adults
+  system.gMeat.adults                  ;; Amount of meat consumed by adults
+  system.gMeat.men                     ;; Amount of meat consumed by men
+  system.gMeat.women                   ;; Amount of meat consumed by women
+  system.gMeat.linc                    ;; Amount of meat consumed by low income
+  system.gMeat.mhinc                   ;; Amount of meat consumed by mid high income
+  system.gMeat.workers                 ;; Amount of meat consumed by workers
+  system.gMeat.noworkers               ;; Amount of meat consumed by non-workers
+  tzero.mean.p.consume.meat.noveg      ;; Likelihood of consuming at the beginning of the sim for meat-eaters
+  ;; Yearly observation for the amount of meat consumed
+  gMeat.2014 gMeat.2014.young gMeat.2014.adults gMeat.2014.men gMeat.2014.women gMeat.2014.linc gMeat.2014.mhinc gMeat.2014.work gMeat.2014.nowork
+  gMeat.2015 gMeat.2015.young gMeat.2015.adults gMeat.2015.men gMeat.2015.women gMeat.2015.linc gMeat.2015.mhinc gMeat.2015.work gMeat.2015.nowork
+  gMeat.2016 gMeat.2016.young gMeat.2016.adults gMeat.2016.men gMeat.2016.women gMeat.2016.linc gMeat.2016.mhinc gMeat.2016.work gMeat.2016.nowork
+  gMeat.2017 gMeat.2017.young gMeat.2017.adults gMeat.2017.men gMeat.2017.women gMeat.2017.linc gMeat.2017.mhinc gMeat.2017.work gMeat.2017.nowork
+  ;; Yearly observation for the concerns
+  ag.env.2014 ag.env.2015 ag.env.2016 ag.env.2017
+  ag.hlt.2014 ag.hlt.2015 ag.hlt.2016 ag.hlt.2017
+  ag.awe.2014 ag.awe.2015 ag.awe.2016 ag.awe.2017
+  ;; Yearly observation for the likelihood of consuming meat
+  pMeat.2014 pMeat.2014.young pMeat.2014.adults pMeat.2014.men pMeat.2014.women pMeat.2014.linc pMeat.2014.mhinc pMeat.2014.work pMeat.2014.nowork
+  pMeat.2015 pMeat.2015.young pMeat.2015.adults pMeat.2015.men pMeat.2015.women pMeat.2015.linc pMeat.2015.mhinc pMeat.2015.work pMeat.2015.nowork
+  pMeat.2016 pMeat.2016.young pMeat.2016.adults pMeat.2016.men pMeat.2016.women pMeat.2016.linc pMeat.2016.mhinc pMeat.2016.work pMeat.2016.nowork
+  pMeat.2017 pMeat.2017.young pMeat.2017.adults pMeat.2017.men pMeat.2017.women pMeat.2017.linc pMeat.2017.mhinc pMeat.2017.work pMeat.2017.nowork
+]
+
+turtles-own
+[
+  ;;..................................................
+  ;; Agents' variables associated with the networks
+  ;;..................................................
+  family-member?                       ;; A flag to mark those agents who are part of a family
+  agent-family-ID                      ;; Agent's family ID
+  worker?                              ;; Every one is part of a family, but only some agents are workers
+  team-member?                         ;; A flag to mark those agents who are part of a work team
+  agent-team-ID                        ;; Agent's team ID
+  ;;..................................................
+  ;; Characteristics of the agents
+  ;;..................................................
+  ag.serial                            ;; Respondent survey ID
+  ag.sex                               ;; 1 = M, 2 = F
+  ag.age                               ;; Consumer's age
+  ag.country                           ;; Country of origin (1=England, 2=Scotland, 3=Wales)
+  ag.env                               ;; Concerns related to the impact of meat on the Environment (env)
+  ag.hlt                               ;; Concerns related to the impact of meat on the Health (hlt)
+  ag.awe                               ;; Concerns related to the impact of meat on the Animal Welfare (awe)
+  ag.pse                               ;; Price sensitivity
+  ag.income.d                          ;; Agent's income (split in decile: 0 = no-income 1&2 = low income (1/5th=low; Tiffin et al, 2011), 3-10 = middle and high income)
+  ag.ped                               ;; Price elasticity demand associated with the income level (see Tiffin at al, 2011)
+  fam.alpha                            ;; Personal susceptibility towards other family members
+  work.alpha                           ;; Personal susceptibility towards other colleagues
+  ;;..................................................
+  ;; Agents' variables related to food choice and eating behaviour
+  ;;..................................................
+  ag.p.consume.meat                    ;; Indiviudal likelihood to consume meat in a meal
+  ag.p.consume.meat.t0                 ;; Indiviudal likelihood to consume meat in a meal at time zero
+  ag.p.consume.meat.weekly             ;; Average weekly likelihood to consume meat
+  veg?                                 ;; 0=Vegetarian
+  ag.gMeat                             ;; Amount of eaten meat (grams)
+  home.eating?                         ;; Marks if the agent is currently eating at home
+  work.eating?                         ;; Marks if the agent is currently eating at the workplace
+  ag.p.eatalone.bkft                   ;; Probability to eat alone breakfast
+  ag.p.eatalone.lunch                  ;; Probability to eat alone lunch
+  ag.p.eatalone.dinner                 ;; Probability to eat alone dinner
+  ag.gMeat.week                        ;; Weekly intake
+  ag.gMeat.day                         ;; Daily intake
+   ag.gMeat.break                      ;; Breakfast intake
+   ag.gMeat.lunch                      ;; Lunch intake
+   ag.gMeat.dinner                     ;; Dinner intake
+  beh                                  ;; Behaviour as dichotomous var (1=eat meat; 0=eat meat-free)
+  ag.env.sum                           ;; Agent's concern for meat and environment
+  ag.hlt.sum                           ;; Agent's concern for meat and health
+  ag.awe.sum                           ;; Agent's concern for meat and animal welfare
+  ag.gMeat.sum                         ;; Amount of meat eaten by an agent
+  ag.pMeat.sum                         ;; Likelihood of consuming a meat-based meal
+]
+
+family-links-own
+[
+  link-family-ID                       ;; Identify the link among members of the same family
+]
+
+work-links-own
+[
+  link-team-ID                         ;; Identify the link among workers of the same team
+  team-bridge?                         ;; Marks those links that work as bridge between work teams
+]
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; WORLD SETUP             ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; General setup of the model
+to setup
+  clear-all
+  clear-output
+  ;; Close any files open from last run
+  file-close-all
+  if (file-exists? "MeatNet-Consumers-Output.txt" = TRUE) [file-delete "MeatNet-Consumers-Output.txt"]
+  ;if (file-exists? "MeatNet-System-Output.txt" = TRUE) [file-delete "MeatNet-System-Output.txt"]
+  reset-ticks
+  ;; Fix the seed to vary the results of the simulation of fix to obtain the same results
+  if (seed?) [random-seed new-seed]
+  ;; Read data from csv file and initialise agents' basic variables
+  create-people
+  ;; Initialise paramaters for the decision-making model based on the log reg analysis
+  init-parameters
+  ;; Initialise additional agents' variables
+  setup-population
+  ;; Create families and co-workers networks
+  setup-networks
+  ;; Create the visualization
+  build-layout
+  ;; Set links to a neutral colour
+  ask links [set color grey]
+  ;; Initialise time and meal variables
+  set weeks 1
+  set days 1
+  set current.day ""
+  set eating.episodes 2
+  set current.meal ""
+  define-current.phase.of.day
+  define-current.day.of.week
+  define-current.year
+  ;; Initialiase likelihood of eating meat and update plots
+  ask turtles [set ag.p.consume.meat est-prob]
+  ;; Record the initial likelihood of eating meat of meat-eaters for later analysis
+  set tzero.mean.p.consume.meat.noveg mean [ag.p.consume.meat] of turtles with [veg? = 1]
+  ;; Define locations of agents in 3D space
+  update-3d
+end
+
+;; Define locations of agents in 3D space based on their concerns
+to update-3d
+  ask turtles
+  [
+    if (show-size? = TRUE)
+    [
+      ;; Size equals to the amount of meat eaten in a single eating episode
+      ifelse (ticks > 0)
+      [set size ag.gMeat / 100]
+      [set size 1]
+    ]
+    set heading 0
+    ;; Set xyz based on agents' concerns
+    setxyz (ag.env * 10) (ag.hlt * 10) (ag.awe * 10)
+    update-colours
+  ]
+  ;; Mark x-, y-, and z-axis as health, environmental, and animal welfare concern scale
+  if ticks = 0
+  [
+    ask patch  0 0 0 [set pcolor white set plabel "000"]
+    ask patch max-pxcor 0 0 [set pcolor green set plabel "ENV"]
+    ask patch 0 max-pycor 0 [set pcolor blue set plabel "HLT"]
+    ask patch 0 0 max-pzcor [set pcolor violet set plabel "AWE"]
+  ]
+end
+
+;; Update colors of agents based on the likelihood of eating meat or one of the concerns
+to update-colours
+  if Colours? = "pMeat"
+  [ if (ag.p.consume.meat <= .35) [set color lime] if (ag.p.consume.meat > .35) AND ((ag.p.consume.meat <= .65)) [set color yellow] if (ag.p.consume.meat > .65) [set color red] ]
+  if Colours? = "ag.env"
+  [ if (ag.env < 2) [set color 62.5] if (ag.env >= 2) AND ((ag.env <= 4)) [set color 65] if (ag.env > 4) [set color 67.5] ]
+  if Colours? = "ag.hlt"
+  [ if (ag.hlt < 2) [set color 92.5] if (ag.hlt >= 2) AND ((ag.hlt <= 4)) [set color 95] if (ag.hlt > 4) [set color 97.5] ]
+  if Colours? = "ag.awe"
+  [ if (ag.awe < 2) [set color 112.5] if (ag.awe >= 2) AND ((ag.awe <= 4)) [set color 115] if (ag.awe > 4) [set color 117.5] ]
+end
+
+;; Setup variables related to the social networks.
+to setup-networks
+  if family-SN? = TRUE
+  [ create-family-network ]
+  if work-SN?   = TRUE
+  [ create-work-network ]
+end
+
+;; Initialise agents' by reading input dataset
+to create-people
+  ;; State the name of the input file
+  set csv_data "dummydata.csv"
+  file-open csv_data
+  let %count 0
+  ;; Assuming first line contains header
+  let %header file-read-line
+  ;; Import data until the end of the file
+  while [not file-at-end? OR %count = 100]
+  [
+    set %count %count + 1
+    let %case file-read-line           ;; read in row of data
+    set %case word %case ","           ;; add comma to end
+    let %data.list []                  ;; crete empty list
+    ;; create one person based each row in the csv file until the final line - which is empty
+    create-turtles 1
+    [
+      while [not empty? %case]
+      [
+        let %pos position "," %case
+        let %item read-from-string substring %case 0 %pos
+        set %data.list lput %item %data.list
+        set %case substring %case (%pos + 1) length %case
+      ]
+      set ag.serial    item 0 %data.list
+      set ag.sex       item 1 %data.list
+      set ag.age       item 2 %data.list
+      set ag.env       item 3 %data.list
+      set ag.hlt       item 4 %data.list
+      set ag.awe       item 5 %data.list
+      set ag.pse       item 6 %data.list
+      set ag.country   item 7 %data.list
+      set veg?         item 8 %data.list
+      set worker?      item 9 %data.list
+      set ag.income.d  item 10 %data.list
+    ]
+    set number_people %count
+   show (word "imported: " number_people)
+   ]
+  file-close
+end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; SETUP FAMILY NETWORK                      ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Create families
+to create-family-network
+  ;; Setup variables
+  set N-families 0
+  while [count turtles with [family-member? = false] > 0]
+  [ create-a-family ]
+end
+
+to create-a-family
+  ;; reset the agentset to zero
+  let a-family nobody
+  ;; update counter of families in the simulation
+  set N-families N-families + 1
+  ;; the following routine creates a distribution of household size matching empirical data
+  set f-size (random-gamma 5 2.90) ;; Adults per household in the UK by BSA
+  while [f-size <= 1 or f-size >= 9]
+  [ set f-size random-normal 1.5 0.5 ]
+  ;; ask to those agents who are not engaged in a family to be part of an agentset
+  ;; but before check if there is enough free agents to build a family
+  ;; otherwise set family size equal to free agents
+  if f-size > (count turtles with [(family-member? = false)])
+  [ set f-size (count turtles with [(family-member? = false)]) ]
+  repeat f-size
+  [
+    let a-member nobody
+    ;; Identify the turtle with maximum probability to consume meat among those withouth a family
+    ;; It's a 2-step process because max.who return a list, not a number
+    ;;let max.who [who] of turtles with [ag.p.consume.meat = max [ag.p.consume.meat] of turtles with [family-member? = false]]
+    ;; To obtain the who of the turtle we need to call the first item of max.who, which is a list, not a number for Netlogo
+    let potential-members turtles with [family-member? = FALSE]
+    set a-member max-one-of potential-members [ag.p.consume.meat]
+    ask a-member
+    [
+      set family-member? true
+      set agent-family-ID N-families
+      set label agent-family-ID
+      set label-color white
+    ]
+    set a-family (turtle-set a-family a-member)
+  ]
+  ;; create connections among family members
+  ;; NB: if agent-set = 1 agent no links are created, however it counts as 1 family
+  ask a-family ;; calling agents of the agent-set
+  [
+    create-family-links-with other a-family ;; calling links between agents
+    [
+      ;; thickness proportional to the number of family members
+      ;set thickness (0.1 * count a-family / 2)
+      set thickness (0.1)
+      set color red
+      ;; identify family links from the others applying a label
+      set link-family-ID N-families
+      ;set label link-family-ID      ;; Used at the beginning to check links among family members
+      set label-color white
+    ]
+  ]
+end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; SETUP WORK NETWORK                        ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+to create-work-network  ;; create-ff-network
+  ;; Setup variables
+  set N-teams 0
+  while [count turtles with [team-member? = false and worker? = TRUE] > 0]
+  [ create-a-team ]  ;; Create a single team
+  connect-teams  ;; Create connections among work teams using bridge agents
+  ;; Mark all other non-working turtles
+  ask turtles with [worker? = FALSE] [ set agent-team-ID "NW" ]
+  ;; Mark all non-bridge ties
+  ask work-links with [team-bridge? != TRUE] [set team-bridge? FALSE]
+end
+
+to create-a-team
+  ;; reset the agentset to zero
+  let a-team nobody
+  ;; update counter of teams in the simulation
+  set N-teams N-teams + 1
+  ;; create a random size of a team
+  ;; size is defined using a normal distribution M(SD)
+  let t-size round(random-normal mean-team-size 0.5)
+  ;; since we used a normal distribution f-size might be <= 0, we add a control for this event
+  if (t-size <= 0) [set t-size 1]
+  ;; ask to those agents who are not engaged in a team and are workers to be part of an agentset
+  ;; but before check if there is enough free agents to build a team
+  ;; otherwise set team size equal to free agents
+  if t-size > (count turtles with [team-member? = false and worker? = true])
+    [ set t-size (count turtles with [team-member? = false and worker? = true]) ]
+  set a-team N-of t-size turtles with [team-member? = false and worker? = true]
+  ;; indentify a team from the random agent-set
+  ask a-team
+  [
+    ;; change status, now agent is part of a  (it might also be when agentset = 1 agent)
+    set team-member? true
+    set agent-team-ID N-teams
+    set label agent-team-ID
+    set label-color white
+  ]
+  ;; create connections among team members
+  ;; NB: if agent-set = 1 agent no links are created, however it counts as 1 team
+  ask a-team ;; calling agents of the agent-set
+  [
+    create-work-links-with other a-team ;; calling links between agents
+    [
+      set thickness (0.15)
+      set color blue
+      ;; identify team links from the others applying a label
+      set link-team-ID N-teams
+      ;set label link-team-ID     ;; Used at the beginning to check links among team members
+      set label-color white
+    ]
+  ]
+end
+
+to connect-teams
+  let i 1
+  while [i < N-teams]
+  [
+    let t-size count turtles with [agent-team-ID = i]
+    ask N-of (round (t-size * (%interconnection / 100) )) turtles with [agent-team-ID = i]
+    [
+      ;; Connect with a random agent of another team
+      let out-team-agent one-of other turtles with [agent-team-ID != i and worker? = TRUE]
+      create-work-link-with out-team-agent
+      ask work-link-with out-team-agent
+      [
+        set team-bridge? TRUE
+        set color cyan
+      ]
+    ]
+    set i i + 1
+  ]
+end
+
+;; Setup additional variables related to agents
+to setup-population
+  ask turtles
+  [
+    set color grey
+    ;; Setup susceptibility towards members of the family
+    set fam.alpha 0 + precision(random-normal 0.15 0.05)3
+     if fam.alpha < 0 [set fam.alpha 0] if fam.alpha > .30 [set fam.alpha  0.30]
+    ;; Setup susceptibility towards co-workers
+    set work.alpha 0 + precision(random-normal 0.08 0.01)3
+     if work.alpha < 0 [set work.alpha  0] if work.alpha  > .12 [set work.alpha  0.12]
+    set family-member? FALSE
+    set agent-family-ID "NA"
+    set team-member? FALSE
+    set agent-team-ID "NA"
+    set home.eating? FALSE
+    set work.eating? FALSE
+    set ag.gMeat 0
+    set size 1
+    ;; Setup elasticity depending on income class
+    ifelse (ag.income.d >= 0 AND ag.income.d < 3)
+    [set ag.ped 0.839] [set ag.ped .804]
+    set ag.p.consume.meat est-prob-at-time-zero
+    ;; Record the probability to eat meat at the beginning of the simulation
+    set ag.p.consume.meat.t0 est-prob-at-time-zero
+    set ag.p.consume.meat.weekly 0
+  ]
+  ;; Setup workers in the population depending on the data from the csv file or the input given in the interface
+  ifelse (actual-workers? = TRUE)
+  [
+    ask turtles
+    [
+      ifelse (worker? = 1)
+      [ set worker? TRUE
+        set shape "square"  ]
+      [ set worker? FALSE
+        set shape "circle"  ]
+      p.to.eatalone.meals
+    ]
+  ]
+  [
+    ask turtles [set worker? FALSE]
+    ask N-of ((round(%workers) * (count turtles)) / 100) turtles [set worker? TRUE]
+    ask turtles
+    [
+      ifelse (worker? = TRUE)
+      [set shape "square"]
+      [set shape "circle"]
+      p.to.eatalone.meals
+    ]
+  ]
+end
+
+;; Define probabilities to eat alone a meal (data from the NDNS)
+to p.to.eatalone.meals
+  ifelse (worker? = TRUE)
+  [
+    set ag.p.eatalone.bkft precision(random-normal 0.464 0.05)3
+    set ag.p.eatalone.lunch precision(random-normal 0.319 0.05)3
+    set ag.p.eatalone.dinner precision(random-normal 0.181 0.01)3
+  ]
+  [
+    set ag.p.eatalone.bkft precision(random-normal 0.426 0.025)3
+    set ag.p.eatalone.lunch precision(random-normal 0.318 0.025)3
+    set ag.p.eatalone.dinner precision(random-normal 0.248 0.005)3
+  ]
+end
+
+;; Initialize parameters of the DM process based on the results of the log regress conducted on the BSA survey (2016)
+to init-parameters
+  set b0  -6.321  ;; constant
+  set b1  .655    ;; sex
+  set b2  .016    ;; age
+  set b3  .287    ;; env concerns
+  set b4  .623    ;; health concerns
+  set b5  .178    ;; animal welfare concerns
+  set b6  .101    ;; perceived livings cost (used as proxy for price sensitivity)
+end
+
+;; Report the probability to consume a meal based on meat using the inverse log reg function at the beginning of the simulation
+to-report est-prob-at-time-zero
+  let y ( b0 + (b1 * ag.sex) + (b2 * ag.age) + (b3 * ag.env) + (b4 * ag.hlt)
+             + (b5 * ag.awe) + (b6 * ag.pse * (1 / 100)) )
+  let above e ^ y
+  let below (1 + e ^ y)
+  report (1 - (above / below)) * (veg?)
+end
+
+;; Report the probability to consume a meal based on meat using the inverse log reg function at any time during the simulation
+to-report est-prob
+  let actual.meat.price 0
+  ifelse (weeks >= 5) [set actual.meat.price  (meat.price.index * meat.price.increase)] [set actual.meat.price meat.price.index] ; Taxation starts from week no.2
+  let y ( b0 + (b1 * ag.sex) + (b2 * ag.age) + (b3 * ag.env) + (b4 * ag.hlt)
+             + (b5 * ag.awe) + (b6 * ag.pse * (actual.meat.price / 100)) )
+  let above e ^ y
+  let below (1 + e ^ y)
+  report (1 - (above / below)) * (veg?)
+end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; TIME MANAGEMENT         ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Report the eating episode
+to define-current.phase.of.day
+  ifelse (eating.episodes = 3)
+  [ set current.meal "Dinner"]
+  [
+    ifelse (eating.episodes = 2)
+    [ set current.meal "Lunch" ]
+    [ set current.meal "Breakfast" ]
+  ]
+end
+
+;; Report the day of the week in words
+to define-current.day.of.week
+  if (days mod 7) = 0 [ set current.day "Sunday" ]
+  if (days mod 7) = 1 [ set current.day "Monday" ]
+  if (days mod 7) = 2 [ set current.day "Tuesday" ]
+  if (days mod 7) = 3 [ set current.day "Wednesday" ]
+  if (days mod 7) = 4 [ set current.day "Thursday"]
+  if (days mod 7) = 5 [ set current.day "Friday" ]
+  if (days mod 7) = 6 [ set current.day "Saturday" ]
+end
+
+;; Change year every 365 days
+to define-current.year
+  ifelse days >= 731 [set current.year 2016]
+  [ ifelse days >= 366 [set current.year 2015]
+    [set current.year 2014] ]
+end
+
+;; Reset agents' and links' variables (like flags, size, etc.) for the next eating episode
+to reset-for-new-meal
+  ask turtles
+  [
+    set home.eating? FALSE
+    set work.eating? FALSE
+    set color grey
+    ;;Reset prob to eat alone meals
+    p.to.eatalone.meals
+    set ag.gMeat 0
+    ifelse worker? [set shape "square"] [set shape "circle"]
+  ]
+  ask family-links
+  [
+    set color grey
+    set thickness 0.1
+  ]
+  ask work-links
+  [
+    set color grey
+    set thickness 0.1
+  ]
+end
+
+;; Mark agents that are eating depending on the current meal of the day
+to color-mark
+  if current.meal = "Breakfast" [ set color red ]
+  if current.meal = "Lunch"
+  [
+     if (home.eating? = TRUE) [set color green]
+     if (work.eating? = TRUE) [set color blue]
+  ]
+  if current.meal = "Dinner" [ set color yellow ]
+end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; RUN SIMULATION          ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+to go2
+  ;; Update meat price
+  price-index-update
+  ;; Stop simulation after 3 years
+  if ticks >= 3296 [stop]
+  ;; Prepare agents for a new eating episode
+  reset-for-new-meal
+  if (days mod 7 = 0 AND eating.episodes = 4)
+  [
+    ask turtles
+    [
+      set ag.gMeat.week 0
+      set ag.p.consume.meat.weekly 0
+    ]
+  ]
+  ;; Define the phase of the current day
+  define-current.phase.of.day
+  ;; Increase number of weeks by one on Monday morning
+  ;; Increase number of days by one every 3 eating episodes
+  ;; Reset the eating.episodes to 1 to start from 1 (i.e. breakfast) the next tick
+  if eating.episodes = 4
+  [
+    ask turtles
+    [
+      set ag.gMeat.week ag.gMeat.week + ag.gMeat.day
+      set ag.gMeat.day 0
+      set ag.gMeat.break 0
+      set ag.gMeat.lunch 0
+      set ag.gMeat.dinner 0
+     ]
+    if (days mod 7 = 0)
+    [ set weeks weeks + 1 ]     ;; Every 7 days 1 week pass
+    set days days + 1                          ;; Every 3 eating episodes 1 day is gone
+    set eating.episodes 1                      ;; Reset eating episode to breakfast
+  ]
+  ;; ASK AGENTS TO EAT
+  eating-episode
+  ;; Update agents' position in 3D space
+  update-3d
+  ;; Sum the amount of meat eaten by different categories of consumers
+  set system.gMeat.meate system.gMeat.meate + mean [ag.gMeat] of turtles with [(veg? = 1)] ;; only meat-eaters
+  set system.gMeat.young system.gMeat.young + mean [ag.gMeat] of turtles with [(veg? = 1) AND (ag.age >= 18) AND (ag.age < 30)] ;; only young
+  set system.gMeat.adults system.gMeat.adults + mean [ag.gMeat] of turtles with [(veg? = 1) AND (ag.age >= 30) AND (ag.age < 65)] ;; only adults
+  set system.gMeat.men system.gMeat.men + mean [ag.gMeat] of turtles with [(veg? = 1) AND ag.sex = 1] ;; only males
+  set system.gMeat.women system.gMeat.women + mean [ag.gMeat] of turtles with [(veg? = 1) AND ag.sex = 2] ;; only females
+  set system.gMeat.linc system.gMeat.linc + mean [ag.gMeat] of turtles with [(veg? = 1) AND ag.income.d >= 0 AND ag.income.d < 3] ;; only low income
+  set system.gMeat.mhinc system.gMeat.mhinc + mean [ag.gMeat] of turtles with [(veg? = 1) AND ag.income.d >= 3 AND ag.income.d <= 10] ;; only mid-high income
+  set system.gMeat.workers system.gMeat.workers + mean [ag.gMeat] of turtles with [(veg? = 1) AND worker? = TRUE] ;; only low income
+  set system.gMeat.noworkers system.gMeat.noworkers + mean [ag.gMeat] of turtles with [(veg? = 1) AND worker? = FALSE] ;; only low income
+  ;; Define the current day with words
+  define-current.day.of.week
+  define-current.year
+  ;; Increase by one the phase of the day for the next tick
+  ;; NB: eating.episodes will appear one step forward than current.meal because the values are reported at the end of each tick
+  set eating.episodes eating.episodes + 1
+  ;; Change in agents' concerns due to non-explicitly modelled sources of influences
+  if ext-source? = TRUE [ ask turtles [ ext-sources-of-influence ] ]
+  ;; Updates plots/blocknotes
+  plots-update
+  write-outputs-of-agents
+  store-temp-outputs-of-agents
+  store-temp-outputs-of-system
+  write-outputs
+  write-eating-episode-report
+  write-weekly-report
+  report-int-beh-gap
+  tick
+end
+
+;; Ask agents to eat depending on the phase (i.e "current.meal") of the day
+to eating-episode
+  ;; BREAKFAST at home in the morning  (all days)
+  if eating.episodes = 1
+  [
+    home-eating
+    eating-behaviour
+  ]
+  ; LUNCH at home on Saturday and Sunday or at the workplace on weekdays
+  if eating.episodes = 2
+  [
+    ifelse ( (current.day = "Monday") OR (current.day = "Tuesday") OR(current.day = "Wednesday") OR(current.day = "Thursday") OR (current.day = "Friday") )
+    [
+      workplace-eating
+      home-eating
+      eating-behaviour
+    ]
+    [
+      home-eating
+      eating-behaviour
+    ]
+  ]
+  ; DINNER at home in the evening (all days)
+  if eating.episodes = 3
+  [
+    home-eating
+    eating-behaviour
+  ]
+end
+
+;; Update meat price index based on CPIH ANNUAL RATE 01.1.2: MEAT (price in July 2014 is set to 100)
+to price-index-update
+  if weeks < 4   [set meat.price.index 100]
+  if weeks >= 4  [set meat.price.index 100 + 0.1]
+  if weeks >= 8  [set meat.price.index 100 - 0.1]
+  if weeks >= 12 [set meat.price.index 100 - 1.5]
+  if weeks >= 16 [set meat.price.index 100 - 2.0]
+  if weeks >= 20 [set meat.price.index 100 - 1.8]
+  if weeks >= 24 [set meat.price.index 100 - 1.7]
+  if weeks >= 28 [set meat.price.index 100 - 2.4]
+  if weeks >= 32 [set meat.price.index 100 - 3.0]
+  if weeks >= 36 [set meat.price.index 100 - 2.8]
+  if weeks >= 40 [set meat.price.index 100 - 2.4]
+  if weeks >= 44 [set meat.price.index 100 - 2.6]
+  if weeks >= 48 [set meat.price.index 100 - 2.6]
+  if weeks >= 52 [set meat.price.index 100 - 3.7]
+  if weeks >= 56 [set meat.price.index 100 - 3.7]
+  if weeks >= 60 [set meat.price.index 100 - 4.3]
+  if weeks >= 64 [set meat.price.index 100 - 3.8]
+  if weeks >= 68 [set meat.price.index 100 - 4.1]
+  if weeks >= 72 [set meat.price.index 100 - 3.8]
+  if weeks >= 76 [set meat.price.index 100 - 4.3]
+  if weeks >= 80 [set meat.price.index 100 - 4.4]
+  if weeks >= 84 [set meat.price.index 100 - 4.9]
+  if weeks >= 88 [set meat.price.index 100 - 5.2]
+  if weeks >= 92 [set meat.price.index 100 - 4.1]
+  if weeks >= 96 [set meat.price.index 100 - 5.4]
+  if weeks >= 100 [set meat.price.index 100 - 4.0]
+  if weeks >= 104 [set meat.price.index 100 - 4.5]
+  if weeks >= 108 [set meat.price.index 100 - 3.3]
+  if weeks >= 112 [set meat.price.index 100 - 2.9]
+  if weeks >= 116 [set meat.price.index 100 - 2.3]
+  if weeks >= 120 [set meat.price.index 100 - 1.6]
+  if weeks >= 124 [set meat.price.index 100 - 0.8]
+  if weeks >= 128 [set meat.price.index 100 - 0]
+  if weeks >= 132 [set meat.price.index 100 + 1.4 ]
+  if weeks >= 136 [set meat.price.index 100 + 2.1 ]
+  if weeks >= 140 [set meat.price.index 100 + 1.4 ]
+  if weeks >= 144 [set meat.price.index 100 + 2.2 ]
+  if weeks >= 148 [set meat.price.index 100 + 1.7 ]
+  if weeks >= 152 [set meat.price.index 100 + 3.2 ]
+  if weeks >= 152 [set meat.price.index 100 + 3.9 ]
+  if weeks >= 156 [set meat.price.index 100 + 3.8 ]
+end
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; FOOD CHOICE AND EATING  ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Ask turtles to eat, independently from eating alone or not
+to eating-behaviour
+  ask turtles
+  [
+    set beh 0
+    set ag.p.consume.meat est-prob
+    set ag.p.consume.meat.weekly ag.p.consume.meat.weekly + ag.p.consume.meat
+    let random.p precision(random-float 1)2
+    ;; If p(consume.meat) is lower than random.p agent will not eat meat:
+    if (ag.p.consume.meat > random.p)
+    [
+      estimate.eaten.meat
+      set beh 1   ;; Call a function that estimates the amount of meat eaten by each consumer
+    ]
+  ]
+end
+
+;; Estimate the amount of eaten meat based on sex, time of the day, and price/price elasticity
+to estimate.eaten.meat
+  ;; A temp variable to store the habitual amount of meat eaten by a consumer for the standard price
+  let std.gMeat 0
+  ;; Start taxation from week no.2
+  let actual.meat.price 0
+  ifelse (weeks >= 5) [set actual.meat.price (meat.price.index * meat.price.increase)] [set actual.meat.price meat.price.index] ;; Taxation starts from week no.2
+  ;; Take into account the price elasticity demand (i.e. an increase in price will lower the amount of grams consumed)
+  ;; If tax = 0 then ped.effect = 1, for an increase in taxes the ped.effect decreases the amount of meat eaten
+  let ped.effect (1 - (ag.ped * ( (actual.meat.price / 100) - 1) ))
+  ifelse (ag.sex = 1)
+  ;; Eaten meat for males (1)
+  [
+    if current.meal = "Breakfast"
+    [ set std.gMeat (random-normal 5.31 1.65) ^ 2 ]
+    if current.meal = "Lunch"
+    [ set std.gMeat (random-normal 5.20 1.69) ^ 2 ]
+    if current.meal = "Dinner"
+    [ set std.gMeat (random-normal 6.20 1.79) ^ 2 ]
+  ]
+  ;; Eaten meat for females (2)
+  [
+    if current.meal = "Breakfast"
+    [ set std.gMeat (random-normal 4.88 1.52) ^ 2 ]
+    if current.meal = "Lunch"
+    [ set std.gMeat (random-normal 4.80 1.61) ^ 2 ]
+    if current.meal = "Dinner"
+    [ set std.gMeat (random-normal 5.77 1.63) ^ 2 ]
+  ]
+  ;; Finally, we can have the correct amount of meat eaten by a consumer given the effect of taxes
+  if current.meal = "Breakfast"
+    [ set ag.gMeat.break (std.gMeat * ped.effect)]
+  if current.meal = "Lunch"
+    [ set ag.gMeat.lunch (std.gMeat * ped.effect)]
+  if current.meal = "Dinner"
+    [ set ag.gMeat.dinner (std.gMeat * ped.effect)]
+  set ag.gMeat.day ag.gMeat.break + ag.gMeat.lunch + ag.gMeat.dinner
+end
+
+;; The procedure checks what agents are eating at the home, compute social influence by family members and campaign effects
+to home-eating
+  ;; Ask to all agents if they are eating alone
+  ;; Also, distinguish by color those that are eating from those who are not
+  ;; Eat alone episodes with a certain probability (from NDNS 2016 Data)
+  ask turtles
+  [
+    let random.p1 precision(random-float 1)3
+    let current.p 1
+    ifelse (current.meal = "Breakfast")
+    [set current.p ag.p.eatalone.bkft]
+    [
+      ifelse (current.meal = "Lunch")
+      [set current.p ag.p.eatalone.lunch]
+      [set current.p ag.p.eatalone.dinner]
+    ]
+    ifelse current.p > random.p1
+    [set home.eating? FALSE  set color grey]
+    [set home.eating? TRUE   color-mark ]
+  ]
+  ;; Evaluates if a campaign is active and who is the target population of the campaign
+  ;; Then, if other members of the family are eating the process of social influence is executed due to the increased saliency of norms about meat consumption
+  ;; If the SN interventions is widespread or targeted to family, the target agents are goin to pay attention to other agents in the family
+  Ifelse ( ((SNI.YN.Active? = TRUE) AND (SNI.Time.Active? = TRUE)) AND ((int.diffusion = "Households") OR (int.diffusion = "Widespread")) )
+  [
+    ;;Define target agents of the social-norms interventions
+    let target.turtles turtles ;If target = "N/A", the sim will throw an error
+    if (int.target = "General audience") [ set target.turtles turtles with [home.eating? = TRUE] ]
+    if (int.target = "Only females") [ set target.turtles turtles with [(home.eating? = TRUE) AND (ag.sex = 2)] ] ;; Target by sex
+    if (int.target = "Only males") [ set target.turtles turtles with [(home.eating? = TRUE) AND (ag.sex = 1)] ] ;; Target by sex
+    if (int.target = "Young 18-30") [ set target.turtles turtles with [(home.eating? = TRUE) AND (ag.age >= 18) AND (ag.age < 30)] ]
+    if (int.target = "Adults 30-65") [ set target.turtles turtles with [(home.eating? = TRUE) AND  (ag.age >= 30) AND (ag.age < 65)] ]
+    if (int.target = "Elders 65+") [ set target.turtles turtles with [(home.eating? = TRUE) AND  (ag.age >= 65)] ]
+    if (int.target = "Env concerned") [ set target.turtles turtles with [(home.eating? = TRUE) AND  (ag.env >= 4.5)] ]
+    if (int.target = "Env unconcerned") [ set target.turtles turtles with [(home.eating? = TRUE) AND  (ag.env <= 2)] ]
+    if (int.target = "Health concerned") [ set target.turtles turtles with [(home.eating? = TRUE) AND  (ag.hlt >= 4.5)] ]
+    if (int.target = "Health unconcerned") [ set target.turtles turtles with [(home.eating? = TRUE) AND  (ag.hlt <= 2)] ]
+    if (int.target = "Awe unconcerned") [ set target.turtles turtles with [(home.eating? = TRUE) AND  (ag.awe <= 2)] ]
+    ask target.turtles
+    [
+      ;set size 1.5 ;; Mark those agents that are affected by the SN interventions
+      ask my-family-links [
+        if [home.eating?] of other-end = TRUE [set color [color] of myself] ] ; set link-family-active? TRUE (not used)
+      let fam.locals family-link-neighbors with [home.eating? = TRUE]
+      if (count fam.locals) > 0
+      [ social-influence-manage-function (fam.locals) ]
+    ]
+  ]
+  [
+     ;;If there is no active intervention, a random process of social influence occurs among agents as might happen in real life
+    let turtles.eating.at.home turtles with [(home.eating? = TRUE)]
+    let target.turtles n-of ((count turtles with [(home.eating? = TRUE)]) / common.SI.agents) turtles with [(home.eating? = TRUE)]
+    ask target.turtles
+    [
+      set shape "triangle"
+      ask my-family-links [
+        if [home.eating?] of other-end = TRUE [set color [color] of myself] ] ; set link-family-active? TRUE (not used)
+      let fam.locals family-link-neighbors with [home.eating? = TRUE]
+      if (count fam.locals) > 0
+      [ social-influence-manage-function (fam.locals) ]
+    ]
+  ]
+end
+
+;; The procedure checks what agents are eating at the workplace, compute social influence by co-workers and campaign effects
+to workplace-eating
+  ask turtles with [worker? = TRUE]
+  [
+    ;; First, ask to all agents if they are eating alone
+    ;; Also, distinguish by color those that are eating from those who are not
+    ;; Eat alone episodes with a certain probability (from NDNS 2016 Data)
+    let random.p1 precision(random-float 1)3
+    ifelse ag.p.eatalone.lunch > random.p1
+    [set work.eating? FALSE set color grey]
+    [set work.eating? TRUE  color-mark ]
+  ]
+  ;; Evaluates if a campaign is active and who is the target population of the campaign
+  ;; Then, if other members of the family are eating the process of social influence is executed due to the increased saliency of norms about meat consumption
+  ;; If the SN interventions is widespread or targeted to family, the target agents are goin to pay attention to other agents in the family
+  Ifelse ( ((SNI.YN.Active? = TRUE) AND (SNI.Time.Active? = TRUE)) AND ((int.diffusion = "Only workplaces") OR (int.diffusion = "Widespread")) )
+  [
+    ;;Define target agents of the social-norms interventions: this time only workers are affected
+    let target.turtles turtles WITH [WORKER? = TRUE] ;If target = "N/A", the sim will throw an error
+    if (int.target = "General audience") [ set target.turtles turtles with [(worker? = TRUE) AND (work.eating? = TRUE)] ]
+    if (int.target = "Only females") [ set target.turtles turtles with [(worker? = TRUE) AND (work.eating? = TRUE) AND (ag.sex = 2)] ]
+    if (int.target = "Only males") [ set target.turtles turtles with [(worker? = TRUE) AND (work.eating? = TRUE) AND (ag.sex = 1)] ]
+    if (int.target = "Young 18-30") [ set target.turtles turtles with [(worker? = TRUE) AND (work.eating? = TRUE) AND (ag.age >= 18) AND (ag.age < 30)] ]
+    if (int.target = "Adults 30-65") [ set target.turtles turtles with [(worker? = TRUE) AND (work.eating? = TRUE) AND  (ag.age >= 30) AND (ag.age < 65)] ]
+    if (int.target = "Elders 65+") [ set target.turtles turtles with [(worker? = TRUE) AND (work.eating? = TRUE) AND  (ag.age >= 65)] ]
+    if (int.target = "Env concerned") [ set target.turtles turtles with [(worker? = TRUE) AND (work.eating? = TRUE) AND  (ag.env >= 4.5)] ]
+    if (int.target = "Env unconcerned") [ set target.turtles turtles with [(worker? = TRUE) AND (work.eating? = TRUE) AND  (ag.env <= 2)] ]
+    if (int.target = "Health concerned") [ set target.turtles turtles with [(worker? = TRUE) AND (work.eating? = TRUE) AND  (ag.hlt >= 4.5)] ]
+    if (int.target = "Health unconcerned") [ set target.turtles turtles with [(worker? = TRUE) AND (work.eating? = TRUE) AND  (ag.hlt <= 2)] ]
+    if (int.target = "Awe unconcerned") [ set target.turtles turtles with [(worker? = TRUE) AND (work.eating? = TRUE) AND  (ag.awe <= 2)] ]
+    ask target.turtles
+    [
+      ;set size 1.5 ;; Mark those agents that are affected by the SN interventions
+      ask my-work-links [
+        if [work.eating?] of other-end = TRUE [set color [color] of myself] ] ; set link-team-active? TRUE (not used)
+      let work.locals work-link-neighbors with [work.eating? = TRUE]
+      if (count work.locals) > 0
+      [ social-influence-manage-function (work.locals) ]
+    ]
+  ]
+  [
+    ;;If there is no active intervention, a random process of social influence occurs among agents as might happen in real life
+    let target.turtles n-of ((count turtles with [(worker? = TRUE) AND (work.eating? = TRUE)]) / common.SI.agents) turtles with [(worker? = TRUE) AND (work.eating? = TRUE)]
+    ask target.turtles;target.turtles
+    [
+      set shape "arrow"
+      ask my-work-links [
+        if [work.eating?] of other-end = TRUE [set color [color] of myself] ] ; set link-team-active? TRUE (not used)
+      let work.locals work-link-neighbors with [work.eating? = TRUE]
+      if (count work.locals) > 0
+      [ social-influence-manage-function (work.locals) ]
+    ]
+  ]
+end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; SOCIAL INFLUENCE        ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Manage what concerns among the tree ones will undergo a process of influence influence
+to social-influence-manage-function [temp.locals]
+  let random.p1 (random-float 1)
+  let random.p2 (random-float 1)
+  ifelse random.p1 > random.p2
+  [
+   let random.p3 (random-float 1)
+   let random.p4 (random-float 1)
+   ifelse random.p3 > random.p4
+   [ social-influence-env (temp.locals) ]
+   [ social-influence-hlt (temp.locals) ]
+  ]
+  [ social-influence-awe (temp.locals) ]
+end
+
+;; Check if an intervention is active looking at the temporal conditions.
+;; If so, it set "SNI.Time.Active?" TRUE and allows agents to influence and being influenced due to the intervention.
+to-report SNI.Time.Active?
+  ifelse (weeks >= 5)
+  [
+    ;; Campaigns might "cycle", meaning they might recurr every 6 months rather than being one-off
+    ifelse SNI.cycle? = TRUE
+    [
+      ifelse (weeks <= 26) OR (weeks >= 53 AND weeks <= 78) OR (weeks >= 105 AND weeks <= 130)
+      [report TRUE] [report FALSE]
+    ]
+    [
+      ifelse (weeks <= SNI.Int.Length)
+      [report TRUE] [report FALSE]
+    ]
+  ]
+  [ report FALSE ]
+end
+
+;; Compute social influence with respect to agent's environmental concerns
+to social-influence-env [locals]
+  let temp.alpha 0
+  if home.eating? = TRUE [set temp.alpha fam.alpha]
+  if work.eating? = TRUE [set temp.alpha work.alpha]
+  ifelse SNI.cycle? = FALSE
+  [set SNI.week.counter weeks]
+  [
+    if (weeks <= 26) [set SNI.week.counter weeks]
+    if ((weeks >= 53) AND (weeks <= 78)) [set SNI.week.counter (weeks - 52)]
+    if ((weeks >= 105) AND (weeks <= 130)) [set SNI.week.counter (weeks - 104)]
+  ]
+  set actual.gamma.env 0
+  if ((SNI.YN.Active? = TRUE) AND (SNI.Time.Active? = TRUE))
+  [ set actual.gamma.env (gamma.env)*(e ^ (-0.0125 * SNI.week.counter)) ]
+  ;; ENVIRONMENT
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; Individual concern of the agent weighted for personal factor alpha
+  let ag.ind.env (1 - temp.alpha) * ag.env
+  ;; Sum the concerns regarding the enviroment of those friends ("locals") with a concern higher than the agent
+  let friends.pos.env ( (1 + actual.gamma.env) * (sum [ag.env] of locals with [ag.env > [ag.env] of myself]) )
+  ;; Count how many friends the agent has with higher concern for the environment compared to itself
+  let friend.pos.env.many count locals with [ag.env > [ag.env] of myself]
+  ;; Count gamma factor one time per each previous friends
+  let pos.gamma.env (actual.gamma.env * friend.pos.env.many)
+  ;; Compute the weighted sum of friends for gamma factor
+  let w.friend.pos.env.many ( friend.pos.env.many + pos.gamma.env )
+  ;; Sum the concerns regarding the enviroment of those friends ("locals") with a concern lower than the agent
+  let friends.neg.env ( (1 - actual.gamma.env) * (sum [ag.env] of locals with [ag.env <= [ag.env] of myself]) )
+  ;; Count how many friends the agent has with lower concern for the environment compared to itself
+  let friend.neg.env.many count locals with [ag.env <= [ag.env] of myself]
+  ;; Count gamma factor one time per each previous friends
+  let neg.gamma.env (actual.gamma.env * friend.neg.env.many)
+  ;; Compute the weighted sum of friends for gamma factor
+  let w.friend.neg.env.many ( friend.neg.env.many - neg.gamma.env )
+  set ag.env ag.ind.env + temp.alpha * ( (friends.pos.env + friends.neg.env) / (w.friend.pos.env.many + w.friend.neg.env.many) )
+  if ag.env <= 1 [set ag.env 1]
+  if ag.env >= 5 [set ag.env 5]
+end
+
+;; Compute social influence with respect to agent's health concerns
+to social-influence-hlt [locals]
+  let temp.alpha 0
+  if home.eating? = TRUE [set temp.alpha fam.alpha]
+  if work.eating? = TRUE [set temp.alpha work.alpha]
+  set actual.gamma.hlt 0
+  if ((SNI.YN.Active? = TRUE) AND (SNI.Time.Active? = TRUE))
+  [ set actual.gamma.hlt (gamma.hlt)*(e ^ (-0.0125 * SNI.week.counter)) ]
+  ;; HEALTH
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; Individual concern of the agent weighted for personal factor alpha
+  let ag.ind.hlt (1 - temp.alpha) * ag.hlt
+  ;; Sum the concerns regarding the health of those friends ("locals") with a concern higher than the agent
+  let friends.pos.hlt ( (1 + actual.gamma.hlt) * (sum [ag.hlt] of locals with [ag.hlt > [ag.hlt] of myself]) )
+  ;; Count how many friends the agent has with higher concern for the health compared to itself
+  let friend.pos.hlt.many count locals with [ag.hlt > [ag.hlt] of myself]
+  ;; Count gamma factor one time per each previous friends
+  let pos.gamma.hlt (actual.gamma.hlt * friend.pos.hlt.many)
+  ;; Compute the weighted sum of friends for gamma factor
+  let w.friend.pos.hlt.many ( friend.pos.hlt.many + pos.gamma.hlt )
+  ;; Sum the concerns regarding the health of those friends ("locals") with a concern lower than the agent
+  let friends.neg.hlt ( (1 - actual.gamma.hlt) * (sum [ag.hlt] of locals with [ag.hlt <= [ag.hlt] of myself]) )
+  ;; Count how many friends the agent has with lower concern for the health compared to itself
+  let friend.neg.hlt.many count locals with [ag.hlt <= [ag.hlt] of myself]
+  ;; Count gamma factor one time per each previous friends
+  let neg.gamma.hlt (actual.gamma.hlt * friend.neg.hlt.many)
+  ;; Compute the weighted sum of friends for gamma factor
+  let w.friend.neg.hlt.many ( friend.neg.hlt.many - neg.gamma.hlt )
+  set ag.hlt ag.ind.hlt + temp.alpha * ( (friends.pos.hlt + friends.neg.hlt) / (w.friend.pos.hlt.many + w.friend.neg.hlt.many) )
+  if ag.hlt <= 1 [set ag.hlt 1]
+  if ag.hlt >= 5 [set ag.hlt 5]
+end
+
+;; Compute social influence with respect to agent's animal welfare concerns
+to social-influence-awe [locals]
+  let temp.alpha 0
+  if home.eating? = TRUE [set temp.alpha fam.alpha]
+  if work.eating? = TRUE [set temp.alpha work.alpha]
+  set actual.gamma.awe 0
+  if ((SNI.YN.Active? = TRUE) AND (SNI.Time.Active? = TRUE))
+  [ set actual.gamma.awe (gamma.awe)*(e ^ (-0.0125 * SNI.week.counter)) ]
+  ;; ANIMAL WELFARE
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; Individual concern of the agent weighted for personal factor alpha
+  let ag.ind.awe (1 - temp.alpha) * ag.awe
+  ;; Sum the concerns regarding the animal welfare of those friends ("locals") with a concern higher than the agent
+  let friends.pos.awe ( (1 + actual.gamma.awe) * (sum [ag.awe] of locals with [ag.awe > [ag.awe] of myself]) )
+  ;; Count how many friends the agent has with higher concern for the animal welfare compared to itself
+  let friend.pos.awe.many count locals with [ag.awe > [ag.awe] of myself]
+  ;; Count gamma factor one time per each previous friends
+  let pos.gamma.awe (actual.gamma.awe * friend.pos.awe.many)
+  ;; Compute the weighted sum of friends for gamma factor
+  let w.friend.pos.awe.many ( friend.pos.awe.many + pos.gamma.awe )
+  ;; Sum the concerns regarding the animal welfare of those friends ("locals") with a concern lower than the agent
+  let friends.neg.awe ( (1 - actual.gamma.awe) * (sum [ag.awe] of locals with [ag.awe <= [ag.awe] of myself]) )
+  ;; Count how many friends the agent has with lower concern for the animal welfare compared to itself
+  let friend.neg.awe.many count locals with [ag.awe <= [ag.awe] of myself]
+  ;; Count gamma factor one time per each previous friends
+  let neg.gamma.awe (actual.gamma.awe * friend.neg.awe.many)
+  ;; Compute the weighted sum of friends for gamma factor
+  let w.friend.neg.awe.many ( friend.neg.awe.many - neg.gamma.awe )
+  set ag.awe ag.ind.awe + temp.alpha * ( (friends.pos.awe + friends.neg.awe) / (w.friend.pos.awe.many + w.friend.neg.awe.many) )
+  if ag.awe <= 1 [set ag.awe 1]
+  if ag.awe >= 5 [set ag.awe 5]
+end
+
+;; Change consumers' concerns due not explicitly modelled by the simulation (e.g. influences by media, bad food experiences, etc.)
+;; "par.ext.source.max" was subject to sensitivity analysis: To replicate British consumers' meat consumption is suggested to be equal to 0.10
+to ext-sources-of-influence
+  let random.p random-float 1
+  ifelse (random.p >= 0 AND random.p < .33)
+  [
+    set ag.env ag.env + ((- par.ext.source.max) + random-float (par.ext.source.max * 2))
+    if ag.env <= 1 [set ag.env 1] if ag.env >= 5 [set ag.env 5]
+  ]
+  [
+    ifelse (random.p >= .33 AND random.p < .66)
+    [
+      set ag.hlt ag.hlt + ((- par.ext.source.max) + random-float (par.ext.source.max * 2))
+      if ag.hlt <= 1 [set ag.hlt 1] if ag.hlt >= 5 [set ag.hlt 5]
+    ]
+    [
+      set ag.awe ag.awe + ((- par.ext.source.max) + random-float (par.ext.source.max * 2))
+      if ag.awe <= 1 [set ag.awe 1] if ag.awe >= 5 [set ag.awe 5]
+    ]
+  ]
+end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; BUILD VISUALIZATION             ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Arrange agents' in open/circle networks per family/co-workers/both
+to build-layout
+  if ((layout? = "NONE"))
+  [
+    ask family-links [ set hidden? TRUE]
+    ask work-links [set hidden? TRUE]
+    ask turtles [ set size 1]
+    ask turtles [set label ""]
+  ]
+  if ((layout? = "Open") and (network? = "Families"))
+  [
+    ask family-links [ set hidden? FALSE]
+    ask work-links [set hidden? TRUE]
+    ask turtles [ set size 1]
+    ifelse (Labels?) [ ask turtles [ set label agent-family-ID set label-color white ] ] [ ask turtles [set label ""] ]
+  ]
+  repeat 25 [layout-spring (turtles with [any? family-link-neighbors]) family-links .4 2 5]
+  if ((layout? = "Circle") and (network? = "Families"))
+  [
+    ask family-links [ set hidden? FALSE]
+    ask work-links [set hidden? TRUE]
+    ifelse (Labels?) [ask turtles [ set label agent-family-ID set label-color white ] ] [ ask turtles [set label ""] ]
+    layout-circle sort turtles max-pxcor - 1
+  ]
+  if ((layout? = "Open") and (network? = "Workplace"))
+  [
+    ask work-links [ set hidden? FALSE]
+    ask work-links with [team-bridge?] [ set hidden? FALSE ]
+    ask family-links [set hidden? TRUE]
+    ask turtles [ set size 1]
+    ;ask turtles [ set size 0.1 * (count my-work-links) ]  ;; Resize agents on the based of their individual overall degrees
+    ifelse (Labels?) [ask turtles [ set label agent-team-ID set label-color white ] ] [ ask turtles [set label ""] ]
+    repeat 33 [ layout-spring (turtles with [any? link-neighbors]) links 0.4 6 1 ]
+  ]
+  if ((layout? = "Circle") and (network? = "Workplace"))
+  [
+    ask work-links [set hidden? FALSE]
+    ask work-links with [team-bridge?] [ set hidden? FALSE ]
+    ask family-links [set hidden? TRUE]
+    ask turtles [ set size 1]
+    ;ask turtles [ set size 0.1 * (count my-work-links) ]  ;; Resize agents on the based of their individual overall degrees
+    ifelse (Labels?) [ask turtles [ set label agent-team-ID set label-color white ] ] [ ask turtles [set label ""] ]
+    layout-circle sort turtles max-pxcor - 1
+  ]
+  if ((layout? = "Open") and (network? = "Both"))
+  [
+    ask family-links [ set hidden? FALSE]
+    ask work-links [ set hidden? FALSE]
+    ask work-links with [team-bridge?] [ set hidden? FALSE ]
+    ifelse (Labels?) [ ask turtles [ set label (word agent-family-ID ";" agent-team-ID) set label-color white] ] [ ask turtles [set label ""] ]
+    repeat 33 [ layout-spring (turtles with [any? link-neighbors]) links 0.4 6 1 ]
+  ]
+  if ((layout? = "Circle") and (network? = "Both"))
+  [
+    ask family-links [ set hidden? FALSE]
+    ask work-links [ set hidden? FALSE ]
+    ask work-links with [team-bridge?] [ set hidden? FALSE ]
+    ifelse (Labels?) [ ask turtles [ set label (word agent-family-ID ";" agent-team-ID) set label-color white] ] [ ask turtles [set label ""] ]
+    layout-circle sort turtles max-pxcor - 1
+  ]
+end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; OUTPUTs                         ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;; Plot the likelihood of eating meat
+to plots-update
+  set-current-plot "p(consume.meat)"
+  set-current-plot-pen "mean.p"
+  plotxy ticks mean [ag.p.consume.meat] of turtles
+  set-current-plot-pen "Low income"
+  plotxy ticks mean [ag.p.consume.meat] of turtles with [(ag.income.d >= 0 AND ag.income.d < 3)]
+  set-current-plot-pen "Mid-High income"
+  plotxy ticks mean [ag.p.consume.meat] of turtles with [(ag.income.d >= 3 AND ag.income.d <= 10)]
+end
+
+;; Record temporarily agents' variables to be written in the txt files at the end of each run of the simulation
+to store-temp-outputs-of-agents
+  ifelse (ticks mod 252 != 0) ; 252 = 3 ticks (ie 1 day) * 7 days * 12 weeks => every 3 months
+  [
+    ask turtles
+    [
+      set ag.env.sum ag.env.sum + ag.env
+      set ag.hlt.sum ag.hlt.sum + ag.hlt
+      set ag.awe.sum ag.awe.sum + ag.awe
+      set ag.gMeat.sum ag.gMeat.sum + ag.gMeat
+      set ag.pMeat.sum ag.pMeat.sum + ag.p.consume.meat
+    ]
+  ]
+  [
+    ask turtles
+    [
+      set ag.env.sum 0
+      set ag.hlt.sum 0
+      set ag.awe.sum 0
+      set ag.gMeat.sum 0
+      set ag.pMeat.sum 0
+    ]
+  ]
+end
+
+;; Record in an external txt file agents' concerns and average consumption and likelihood of eating meat for the last 3 months
+;; It is used to re-create using Rthe change of agents' position in the 3D space over time.
+to write-outputs-of-agents
+  if (ticks > 1) AND (ticks mod 252 = 0) ; 252 = 3 ticks (ie 1 day) * 7 days * 12 weeks => every 3 month
+  [
+    if Export-time.map?
+    [
+      if (file-exists? "MeatNet-time_map_data.txt" != TRUE)
+      [
+        file-open "MeatNet-time_map_data.txt"
+        file-write
+        (
+          list
+          "Timestamp" "who" "ag.env" "ag.hlt" "ag.awe" "ag.gMeat.avg.3Months" "ag.pMeat.avg.3Months"
+        )
+        file-print ""
+      ]
+      ask turtles
+      [
+        file-open "MeatNet-time_map_data.txt"
+        file-write date-and-time
+        file-write who
+        file-write (ag.env.sum / 252)   ; 252 -> average concerns(/day) over the last 252 days (i.e. 3 months)
+        file-write (ag.hlt.sum / 252)
+        file-write (ag.awe.sum / 252)
+        file-write (ag.gMeat.sum / 12)  ; 252 -> average grams/WEEK consumed over the last 3 months
+        file-write (ag.pMeat.sum / 252) ; 252 -> average p(/day) over the last 252 days (i.e. 3 months)
+        file-print ""
+        file-close
+      ]
+    ]
+  ]
+end
+
+;; Record in an external txt file the amount of meat eaten during each meal
+to write-eating-episode-report
+  if (ticks > 0) ; Write at every tick
+  [
+    if MeatNet-gMeat-EE-Report?
+    [
+      if (file-exists? "MeatNet-gMeat-EE-Report.txt" != TRUE)
+      [
+        file-open "MeatNet-gMeat-EE-Report.txt"
+        file-write
+        (
+          list
+          "Timestamp" "ticks"
+          "Year" "Week.no" "Day.no" "Meal"
+          "ag.gMeat.break" "ag.gMeat.lunch" "ag.gMeat.dinner" "ag.gMeat.week"
+          )
+        file-print ""
+      ]
+      file-open "MeatNet-gMeat-EE-Report.txt"
+      file-write date-and-time
+      file-write ticks
+      file-write current.year
+      file-write weeks
+      file-write days
+      file-write current.meal
+      file-write mean [ag.gMeat.break] of turtles with [veg? = 1]
+      file-write mean [ag.gMeat.lunch] of turtles with [veg? = 1]
+      file-write mean [ag.gMeat.dinner] of turtles with [veg? = 1]
+      file-write mean [ag.gMeat.week] of turtles with [veg? = 1]
+      file-print ""
+      file-close
+    ]
+  ]
+end
+
+;; Record in an external txt file the amount of meat eaten weekly by agents
+to write-weekly-report
+  if (days mod 7 = 0 AND current.meal = "Dinner") ; Write at every tick
+  [
+    if MeatNet-gMeat-Weekly-Report?
+    [
+      if (file-exists? "MeatNet-gMeat-Weekly-Report.txt" != TRUE)
+      [
+        file-open "MeatNet-gMeat-Weekly-Report.txt"
+        file-write
+        (
+          list
+          "Timestamp" "ticks"
+          "Year" "Week.no" "Day.no"
+          "gMeat" "gMeat.young" "gMeat.adults" "gMeat.men" "gMeat.female" "gMeat.linc" "gMeat.mhinc" "gMeat.work" "gMeat.nowork" "gMeat.highp" "gMeat.medp" "gMeat.lowp"
+          "pMeat" "pMeat.young" "pMeat.adults" "pMeat.men" "pMeat.female" "pMeat.linc" "pMeat.mhinc" "pMeat.work" "pMeat.nowork" "pMeat.highp" "pMeat.medp" "pMeat.lowp"
+          "ag.env" "ag.hlt" "ag.awe"
+          "Experiment.id" "Experiment.label"
+          )
+        file-print ""
+      ]
+      file-open "MeatNet-gMeat-Weekly-Report.txt"
+      file-write date-and-time
+      file-write ticks
+      file-write current.year
+      file-write weeks
+      file-write days
+      file-write mean [ag.gMeat.week] of turtles with [veg? = 1]
+      file-write precision(mean [ag.gMeat.week] of turtles with [(veg? = 1) AND ((ag.age >= 18) AND (ag.age < 30))])5
+      file-write precision(mean [ag.gMeat.week] of turtles with [(veg? = 1) AND ((ag.age >= 30) AND (ag.age < 65))])5
+      file-write precision(mean [ag.gMeat.week] of turtles with [(veg? = 1) AND (ag.sex = 1)])5
+      file-write precision(mean [ag.gMeat.week] of turtles with [(veg? = 1) AND (ag.sex = 2)])5
+      file-write mean [ag.gMeat.week] of turtles with [ag.income.d >= 0 AND ag.income.d < 3]
+      file-write mean [ag.gMeat.week] of turtles with [ag.income.d >= 3 AND ag.income.d <= 10]
+      file-write mean [ag.gMeat.week] of turtles with [worker? = true]
+      file-write mean [ag.gMeat.week] of turtles with [worker? = false]
+      file-write mean [ag.gMeat.week] of turtles with [ag.p.consume.meat.t0 >  0.75]
+      file-write mean [ag.gMeat.week] of turtles with [ag.p.consume.meat.t0 >= 0.25 AND ag.p.consume.meat.t0 <= 0.75]
+      file-write mean [ag.gMeat.week] of turtles with [ag.p.consume.meat.t0 >  0    AND ag.p.consume.meat.t0 <  0.25]
+      file-write mean [ag.p.consume.meat.weekly] of turtles with [veg? = 1] / 21
+      file-write precision(mean [ag.p.consume.meat.weekly] of turtles with [(veg? = 1) AND ((ag.age >= 18) AND (ag.age < 30))])5 / 21
+      file-write precision(mean [ag.p.consume.meat.weekly] of turtles with [(veg? = 1) AND ((ag.age >= 30) AND (ag.age < 65))])5 / 21
+      file-write precision(mean [ag.p.consume.meat.weekly] of turtles with [(veg? = 1) AND (ag.sex = 1)])5 / 21
+      file-write precision(mean [ag.p.consume.meat.weekly] of turtles with [(veg? = 1) AND (ag.sex = 2)])5 / 21
+      file-write mean [ag.p.consume.meat.weekly] of turtles with [ag.income.d >= 0 AND ag.income.d < 3] / 21
+      file-write mean [ag.p.consume.meat.weekly] of turtles with [ag.income.d >= 3 AND ag.income.d <= 10] / 21
+      file-write mean [ag.p.consume.meat.weekly] of turtles with [worker? = true] / 21
+      file-write mean [ag.p.consume.meat.weekly] of turtles with [worker? = false] / 21
+      file-write mean [ag.p.consume.meat.weekly] of turtles with [ag.p.consume.meat.t0 >  0.75] / 21
+      file-write mean [ag.p.consume.meat.weekly] of turtles with [ag.p.consume.meat.t0 >= 0.25 AND ag.p.consume.meat.t0 <= 0.75] / 21
+      file-write mean [ag.p.consume.meat.weekly] of turtles with [ag.p.consume.meat.t0 >  0    AND ag.p.consume.meat.t0 <  0.25] / 21
+      file-write precision(mean [ag.env] of turtles)3
+      file-write precision(mean [ag.hlt] of turtles)3
+      file-write precision(mean [ag.awe] of turtles)3
+      file-write Experiment.id
+      file-write Experiment.label
+      file-print ""
+      file-close
+    ]
+  ]
+end
+
+;; Record temporarily agents' variables to be written in the txt files at the end of each run of the simulation
+to store-temp-outputs-of-system
+  let w 0
+  ifelse ticks = 22
+  [
+    set w 1
+    set gMeat.2014 (system.gMeat.meate / w)
+    set gMeat.2014.young (system.gMeat.young / w)   set gMeat.2014.adults (system.gMeat.adults / w)
+    set gMeat.2014.men (system.gMeat.men / w)     set gMeat.2014.women (system.gMeat.women / w)
+    set gMeat.2014.linc (system.gMeat.linc / w)    set gMeat.2014.mhinc (system.gMeat.mhinc / w)
+    set gMeat.2014.work (system.gMeat.workers / w)    set gMeat.2014.nowork (system.gMeat.noworkers / w)
+    set ag.env.2014 precision(mean [ag.env] of turtles)3
+    set ag.hlt.2014 precision(mean [ag.hlt] of turtles)3
+    set ag.awe.2014 precision(mean [ag.awe] of turtles)3
+    set pMeat.2014 precision(mean [ag.p.consume.meat] of turtles with [veg? = 1])5
+    set pMeat.2014.young precision(mean [ag.p.consume.meat] of turtles with [(veg? = 1) AND ((ag.age >= 18) AND (ag.age < 30))])5
+    set pMeat.2014.adults precision(mean [ag.p.consume.meat] of turtles with [(veg? = 1) AND ((ag.age >= 30) AND (ag.age < 65))])5
+    set pMeat.2014.men precision(mean [ag.p.consume.meat] of turtles with [(veg? = 1) AND (ag.sex = 1)])5
+    set pMeat.2014.women precision(mean [ag.p.consume.meat] of turtles with [(veg? = 1) AND (ag.sex = 2)])5
+    set pMeat.2014.linc mean [ag.p.consume.meat] of turtles with [ag.income.d >= 0 AND ag.income.d < 3]
+    set pMeat.2014.mhinc mean [ag.p.consume.meat] of turtles with [ag.income.d >= 3 AND ag.income.d <= 10]
+    set pMeat.2014.work mean [ag.p.consume.meat] of turtles with [worker? = true]
+    set pMeat.2014.nowork mean [ag.p.consume.meat] of turtles with [worker? = false]
+  ]
+  [
+    ifelse ticks = 1096
+    [
+      set w 52
+      set gMeat.2015 (system.gMeat.meate / w)
+      set gMeat.2015.young (system.gMeat.young / w)   set gMeat.2015.adults (system.gMeat.adults / w)
+      set gMeat.2015.men (system.gMeat.men / w)     set gMeat.2015.women (system.gMeat.women / w)
+      set gMeat.2015.linc (system.gMeat.linc / w)    set gMeat.2015.mhinc (system.gMeat.mhinc / w)
+      set gMeat.2015.work (system.gMeat.workers / w)    set gMeat.2015.nowork (system.gMeat.noworkers / w)
+      set ag.env.2015 precision(mean [ag.env] of turtles)3
+      set ag.hlt.2015 precision(mean [ag.hlt] of turtles)3
+      set ag.awe.2015 precision(mean [ag.awe] of turtles)3
+      set pMeat.2015 precision(mean [ag.p.consume.meat] of turtles with [veg? = 1])5
+      set pMeat.2015.young precision(mean [ag.p.consume.meat] of turtles with [(veg? = 1) AND ((ag.age >= 18) AND (ag.age < 30))])5
+      set pMeat.2015.adults precision(mean [ag.p.consume.meat] of turtles with [(veg? = 1) AND ((ag.age >= 30) AND (ag.age < 65))])5
+      set pMeat.2015.men precision(mean [ag.p.consume.meat] of turtles with [(veg? = 1) AND (ag.sex = 1)])5
+      set pMeat.2015.women precision(mean [ag.p.consume.meat] of turtles with [(veg? = 1) AND (ag.sex = 2)])5
+      set pMeat.2015.linc mean [ag.p.consume.meat] of turtles with [ag.income.d >= 0 AND ag.income.d < 3]
+      set pMeat.2015.mhinc mean [ag.p.consume.meat] of turtles with [ag.income.d >= 3 AND ag.income.d <= 10]
+      set pMeat.2015.work mean [ag.p.consume.meat] of turtles with [worker? = true]
+      set pMeat.2015.nowork mean [ag.p.consume.meat] of turtles with [worker? = false]
+    ]
+    [
+      ifelse ticks = 2192
+      [
+        set w 104
+        set gMeat.2016 (system.gMeat.meate / w)
+        set gMeat.2016.young (system.gMeat.young / w)   set gMeat.2016.adults (system.gMeat.adults / w)
+        set gMeat.2016.men (system.gMeat.men / w)     set gMeat.2016.women (system.gMeat.women / w)
+        set gMeat.2016.linc (system.gMeat.linc / w)    set gMeat.2016.mhinc (system.gMeat.mhinc / w)
+        set gMeat.2016.work (system.gMeat.workers / w)    set gMeat.2016.nowork (system.gMeat.noworkers / w)
+        set ag.env.2016 precision(mean [ag.env] of turtles)3
+        set ag.hlt.2016 precision(mean [ag.hlt] of turtles)3
+        set ag.awe.2016 precision(mean [ag.awe] of turtles)3
+        set pMeat.2016 precision(mean [ag.p.consume.meat] of turtles with [veg? = 1])5
+        set pMeat.2016.young precision(mean [ag.p.consume.meat] of turtles with [(veg? = 1) AND ((ag.age >= 18) AND (ag.age < 30))])5
+        set pMeat.2016.adults precision(mean [ag.p.consume.meat] of turtles with [(veg? = 1) AND ((ag.age >= 30) AND (ag.age < 65))])5
+        set pMeat.2016.men precision(mean [ag.p.consume.meat] of turtles with [(veg? = 1) AND (ag.sex = 1)])5
+        set pMeat.2016.women precision(mean [ag.p.consume.meat] of turtles with [(veg? = 1) AND (ag.sex = 2)])5
+        set pMeat.2016.linc mean [ag.p.consume.meat] of turtles with [ag.income.d >= 0 AND ag.income.d < 3]
+        set pMeat.2016.mhinc mean [ag.p.consume.meat] of turtles with [ag.income.d >= 3 AND ag.income.d <= 10]
+        set pMeat.2016.work mean [ag.p.consume.meat] of turtles with [worker? = true]
+        set pMeat.2016.nowork mean [ag.p.consume.meat] of turtles with [worker? = false]
+      ]
+      [
+        if ticks = 3295 ;3286
+        [
+          set w 156
+          set gMeat.2017 (system.gMeat.meate / w)
+          set gMeat.2017.young (system.gMeat.young / w)   set gMeat.2017.adults (system.gMeat.adults / w)
+          set gMeat.2017.men (system.gMeat.men / w)     set gMeat.2017.women (system.gMeat.women / w)
+          set gMeat.2017.linc (system.gMeat.linc / w)    set gMeat.2017.mhinc (system.gMeat.mhinc / w)
+          set gMeat.2017.work (system.gMeat.workers / w)    set gMeat.2017.nowork (system.gMeat.noworkers / w)
+          set ag.env.2017 precision(mean [ag.env] of turtles)3
+          set ag.hlt.2017 precision(mean [ag.hlt] of turtles)3
+          set ag.awe.2017 precision(mean [ag.awe] of turtles)3
+          set pMeat.2017 precision(mean [ag.p.consume.meat] of turtles with [veg? = 1])5
+          set pMeat.2017.young precision(mean [ag.p.consume.meat] of turtles with [(veg? = 1) AND ((ag.age >= 18) AND (ag.age < 30))])5
+          set pMeat.2017.adults precision(mean [ag.p.consume.meat] of turtles with [(veg? = 1) AND ((ag.age >= 30) AND (ag.age < 65))])5
+          set pMeat.2017.men precision(mean [ag.p.consume.meat] of turtles with [(veg? = 1) AND (ag.sex = 1)])5
+          set pMeat.2017.women precision(mean [ag.p.consume.meat] of turtles with [(veg? = 1) AND (ag.sex = 2)])5
+          set pMeat.2017.linc mean [ag.p.consume.meat] of turtles with [ag.income.d >= 0 AND ag.income.d < 3]
+          set pMeat.2017.mhinc mean [ag.p.consume.meat] of turtles with [ag.income.d >= 3 AND ag.income.d <= 10]
+          set pMeat.2017.work mean [ag.p.consume.meat] of turtles with [worker? = true]
+          set pMeat.2017.nowork mean [ag.p.consume.meat] of turtles with [worker? = false]
+        ]
+      ]
+    ]
+  ]
+end
+
+;; Record in an external txt file yearly consumption of meat by subgroups, agents' concers, and likelihood of eating meat
+;; Also, record individual agents' variables at the end of each simulation.
+to write-outputs
+  if (ticks = 3295) ;3286)
+  [
+    if Export-gMeat/year?
+    [
+      if (file-exists? "MeatNet-gMeat_x_year.txt" != TRUE)
+      [
+        file-open "MeatNet-gMeat_x_year.txt"
+        file-write
+        (
+          list
+          "Timestamp"
+          "gMeat.2014" "gMeat.2015" "gMeat.2016" "gMeat.2017"
+          "gMeat.2014.young" "gMeat.2015.young" "gMeat.2016.young" "gMeat.2017.young"
+          "gMeat.2014.adults" "gMeat.2015.adults" "gMeat.2016.adults" "gMeat.2017.adults"
+          "gMeat.2014.men" "gMeat.2015.men" "gMeat.2016.men" "gMeat.2017.men"
+          "gMeat.2014.women" "gMeat.2015.women" "gMeat.2016.women" "gMeat.2017.women"
+          "gMeat.2014.linc" "gMeat.2015.linc" "gMeat.2016.linc" "gMeat.2017.linc"
+          "gMeat.2014.mhinc" "gMeat.2015.mhinc" "gMeat.2016.mhinc" "gMeat.2017.mhinc"
+          "gMeat.2014.work" "gMeat.2015.work" "gMeat.2016.work" "gMeat.2017.work"
+          "gMeat.2014.nowork" "gMeat.2015.nowork" "gMeat.2016.nowork" "gMeat.2017.nowork"
+          )
+        file-print ""
+      ]
+      file-open "MeatNet-gMeat_x_year.txt"
+      file-write date-and-time
+      file-write gMeat.2014 file-write gMeat.2015 file-write gMeat.2016 file-write gMeat.2017
+      file-write gMeat.2014.young file-write gMeat.2015.young file-write gMeat.2016.young file-write gMeat.2017.young
+      file-write gMeat.2014.adults file-write gMeat.2015.adults file-write gMeat.2016.adults file-write gMeat.2017.adults
+      file-write gMeat.2014.men file-write gMeat.2015.men file-write gMeat.2016.men file-write gMeat.2017.men
+      file-write gMeat.2014.women file-write gMeat.2015.women file-write gMeat.2016.women file-write gMeat.2017.women
+      file-write gMeat.2014.linc file-write gMeat.2015.linc file-write gMeat.2016.linc file-write gMeat.2017.linc
+      file-write gMeat.2014.mhinc file-write gMeat.2015.mhinc file-write gMeat.2016.mhinc file-write gMeat.2017.mhinc
+      file-write gMeat.2014.work file-write gMeat.2015.work file-write gMeat.2016.work file-write gMeat.2017.work
+      file-write gMeat.2014.nowork file-write gMeat.2015.nowork file-write gMeat.2016.nowork file-write gMeat.2017.nowork
+      file-print ""
+      file-close
+    ]
+  ]
+  if (ticks = 3295) ;3286)
+  [
+    if Export-concerns/year?
+    [
+      if (file-exists? "MeatNet-concerns_x_year.txt" != TRUE)
+      [
+        file-open "MeatNet-concerns_x_year.txt"
+        file-write
+        (
+          list
+          "Timestamp"
+          "ag.env.2014" "ag.env.2015" "ag.env.2016" "ag.env.2017"
+          "ag.hlt.2014" "ag.hlt.2015" "ag.hlt.2016" "ag.hlt.2017"
+          "ag.awe.2014" "ag.awe.2015" "ag.awe.2016" "ag.awe.2017"
+          )
+        file-print ""
+      ]
+      file-open "MeatNet-concerns_x_year.txt"
+      file-write date-and-time
+      file-write ag.env.2014 file-write ag.env.2015 file-write ag.env.2016 file-write ag.env.2017
+      file-write ag.hlt.2014 file-write ag.hlt.2015 file-write ag.hlt.2016 file-write ag.hlt.2017
+      file-write ag.awe.2014 file-write ag.awe.2015 file-write ag.awe.2016 file-write ag.awe.2017
+      file-print ""
+      file-close
+    ]
+  ]
+  if (ticks = 3295) ;3286)
+  [
+    if Export-pMeat/year?
+    [
+      if (file-exists? "MeatNet-pMeat_x_year.txt" != TRUE)
+      [
+        file-open "MeatNet-pMeat_x_year.txt"
+        file-write
+        (
+          list
+          "Timestamp"
+          "pMeat.2014" "pMeat.2015" "pMeat.2016" "pMeat.2017"
+          "pMeat.2014.young" "pMeat.2015.young" "pMeat.2016.young" "pMeat.2017.young"
+          "pMeat.2014.adults" "pMeat.2015.adults" "pMeat.2016.adults" "pMeat.2017.adults"
+          "pMeat.2014.men" "pMeat.2015.men" "pMeat.2016.men" "pMeat.2017.men"
+          "pMeat.2014.women" "pMeat.2015.women" "pMeat.2016.women" "pMeat.2017.women"
+          "pMeat.2014.linc" "pMeat.2015.linc" "pMeat.2016.linc" "pMeat.2017.linc"
+          "pMeat.2014.mhinc" "pMeat.2015.mhinc" "pMeat.2016.mhinc" "pMeat.2017.mhinc"
+          "pMeat.2014.work" "pMeat.2015.work" "pMeat.2016.work" "pMeat.2017.work"
+          "pMeat.2014.nowork" "pMeat.2015.nowork" "pMeat.2016.nowork" "pMeat.2017.nowork"
+          )
+        file-print ""
+      ]
+      file-open "MeatNet-pMeat_x_year.txt"
+      file-write date-and-time
+      file-write pMeat.2014 file-write pMeat.2015 file-write pMeat.2016 file-write pMeat.2017
+      file-write pMeat.2014.young file-write pMeat.2015.young file-write pMeat.2016.young file-write pMeat.2017.young
+      file-write pMeat.2014.adults file-write pMeat.2015.adults file-write pMeat.2016.adults file-write pMeat.2017.adults
+      file-write pMeat.2014.men file-write pMeat.2015.men file-write pMeat.2016.men file-write pMeat.2017.men
+      file-write pMeat.2014.women file-write pMeat.2015.women file-write pMeat.2016.women file-write pMeat.2017.women
+      file-write pMeat.2014.linc file-write pMeat.2015.linc file-write pMeat.2016.linc file-write pMeat.2017.linc
+      file-write pMeat.2014.mhinc file-write pMeat.2015.mhinc file-write pMeat.2016.mhinc file-write pMeat.2017.mhinc
+      file-write pMeat.2014.work file-write pMeat.2015.work file-write pMeat.2016.work file-write pMeat.2017.work
+      file-write pMeat.2014.nowork file-write pMeat.2015.nowork file-write pMeat.2016.nowork file-write pMeat.2017.nowork
+      file-print ""
+      file-close
+    ]
+  ]
+  if (ticks = 3285)
+    [
+      if Export-Consumers-Output?  ;; CONSUMERS DATA OUTPUT
+      [
+        ask turtles
+        [
+          file-open "MeatNet-Consumers-Output.txt"
+          file-write ag.serial
+          file-write ag.sex
+          file-write ag.age
+          file-write agent-family-ID
+          file-write agent-team-ID
+          file-write precision(ag.p.consume.meat)3
+          file-write veg?
+          file-print precision(ag.gMeat)3
+          file-print ""
+          file-close
+        ]
+      ]
+      if Export-System-Output?   ;; SYSTEM DATA OUTPUT
+      [
+        if (file-exists? "MeatNet-System-Output.txt" != TRUE)
+        [
+          file-open "MeatNet-System-Output.txt"
+          file-write
+          (
+            list
+            "Timestamp" "par.fluct.max"  "meat.price.index*price.increase"  "SNI.YN.Active?"  "SNI.Int.Length"  "Int.target"  "Int.diffusion"  "gamma.env"  "gamma.hlt"  "gamma.awe"
+            "p()"  "p().lowinc" "p().mhinc"  "p().young"  "p().adults"  "p().males"  "p().females"  "p().work"  "p().nowork"
+            "%veg"  "%veg.lowinc"  "%veg.mhinc"  "%veg.young" "%veg.adults"  "%veg.males"  "%veg.females"  "%veg.work"  "%veg.nowork"
+            "avg.env"  "avg.hlt" "avg.awe"  "avg.env.young"  "avg.hlt.young"  "avg.awe.young"  "avg.env.adults"  "avg.hlt.adults"  "avg.awe.adults"  "avg.env.work"  "avg.hlt.work"  "avg.awe.work"  "avg.env.nowork"  "avg.hlt.nowork"  "avg.awe.nowork"
+            "gMeat.meate"  "gMeat.linc"  "gMeat.mhinc"  "gMeat.young"  "gMeat.adults"  "gMeat.males"  "gMeat.females"  "gMeat.work"  "gMeat.nowork"
+            )
+          file-print ""
+        ]
+        file-open "MeatNet-System-Output.txt"
+        ;; "substring" Write only the time (the first 16 chars) rather than the complete string of date-and-time
+        file-write date-and-time
+        ;; INPUTS
+        ;; Report the fluctuation applied to agents' concerns
+        file-write par.ext.source.max
+        ;; Report the taxation applied to the world
+        file-write (meat.price.index * meat.price.increase)
+        ;; Report information about the intervention (if) applied
+        file-write SNI.YN.Active?
+        file-write SNI.Int.Length
+        file-write Int.target
+        file-write Int.diffusion
+        file-write gamma.env
+        file-write gamma.hlt
+        file-write gamma.awe
+        ;; OUTPUTS
+        ;; Likelihood to consume meat of meat-eaters
+        file-write precision(mean [ag.p.consume.meat] of turtles with [veg? = 1])5
+        ;; Likelihood to consume meat of meat-eaters: low vs mid-high income
+        file-write mean [ag.p.consume.meat] of turtles with [ag.income.d >= 0 AND ag.income.d < 3]
+        file-write mean [ag.p.consume.meat] of turtles with [ag.income.d >= 3 AND ag.income.d <= 10]
+        ;; Likelihood to consume meat of meat-eaters: young vs adults
+        file-write precision(mean [ag.p.consume.meat] of turtles with [(veg? = 1) AND ((ag.age >= 18) AND (ag.age < 30))])5
+        file-write precision(mean [ag.p.consume.meat] of turtles with [(veg? = 1) AND ((ag.age >= 30) AND (ag.age < 65))])5
+        ;; Likelihood to consume meat of meat-eaters: men (1) vs women (2)
+        file-write precision(mean [ag.p.consume.meat] of turtles with [(veg? = 1) AND (ag.sex = 1)])5
+        file-write precision(mean [ag.p.consume.meat] of turtles with [(veg? = 1) AND (ag.sex = 2)])5
+        ;; Likelihood to consume meat of meat-eaters: workers vs non-workers
+        file-write mean [ag.p.consume.meat] of turtles with [worker? = true]
+        file-write mean [ag.p.consume.meat] of turtles with [worker? = false]
+        ;; Percentage of veg* consumers
+        file-write precision((count turtles with [veg? = 0] / count turtles) * 100)2
+        ;; Percentage of veg* consumers: low vs mid-high income
+        file-write precision((count turtles with [(veg? = 0) AND (ag.income.d >= 0 AND ag.income.d < 3)] / count turtles with [(ag.income.d >= 0 AND ag.income.d < 3)]) * 100)2
+        file-write precision((count turtles with [(veg? = 0) AND (ag.income.d >= 3 AND ag.income.d < 10)] / count turtles with [(ag.income.d >= 3 AND ag.income.d < 10)]) * 100)2
+        ;; Percentage of veg* consumers: young consumers vs adults
+        file-write precision((count turtles with [(veg? = 0) AND ((ag.age >= 18) AND (ag.age < 30))] / count turtles with [((ag.age >= 18) AND (ag.age < 30))]) * 100)2
+        file-write precision((count turtles with [(veg? = 0) AND ((ag.age >= 30) AND (ag.age < 65))] / count turtles with [((ag.age >= 30) AND (ag.age < 65))]) * 100)2
+        ;; Percentage of veg* consumers: men (1) vs women (2)
+        file-write precision((count turtles with [(veg? = 0) AND (ag.sex = 1)] / count turtles with [((ag.age >= 18) AND (ag.sex = 1))]) * 100)2
+        file-write precision((count turtles with [(veg? = 0) AND (ag.sex = 2)] / count turtles with [((ag.age >= 18) AND (ag.sex = 2))]) * 100)2
+        ;; Percentage of veg* consumers: workers vs non-workers
+        file-write precision((count turtles with [(veg? = 0) AND (worker? = true)] / count turtles with [worker? = true]) * 100)2
+        file-write precision((count turtles with [(veg? = 0) AND (worker? = false)] / count turtles with [worker? = false]) * 100)2
+        ;; Average concerns of all consumers on env, health, and an welfare
+        file-write precision(mean [ag.env] of turtles)3
+        file-write precision(mean [ag.hlt] of turtles)3
+        file-write precision(mean [ag.awe] of turtles)3
+        ;; Average concerns on env, health, and an welfare: young vs adults
+        file-write precision(mean [ag.env] of turtles with [(ag.age >= 18) AND (ag.age < 30)])3
+        file-write precision(mean [ag.hlt] of turtles with [(ag.age >= 18) AND (ag.age < 30)])3
+        file-write precision(mean [ag.awe] of turtles with [(ag.age >= 18) AND (ag.age < 30)])3
+        file-write precision(mean [ag.env] of turtles with [(ag.age >= 30) AND (ag.age < 65)])3
+        file-write precision(mean [ag.hlt] of turtles with [(ag.age >= 30) AND (ag.age < 65)])3
+        file-write precision(mean [ag.awe] of turtles with [(ag.age >= 30) AND (ag.age < 65)])3
+        ;; Average concerns on env, health, and an welfare: workers vs non-workers
+        file-write precision(mean [ag.env] of turtles with [(worker? = true)])3
+        file-write precision(mean [ag.hlt] of turtles with [(worker? = true)])3
+        file-write precision(mean [ag.awe] of turtles with [(worker? = true)])3
+        file-write precision(mean [ag.env] of turtles with [(worker? = false)])3
+        file-write precision(mean [ag.hlt] of turtles with [(worker? = false)])3
+        file-write precision(mean [ag.awe] of turtles with [(worker? = false)])3
+        ;; Amount of meat eaten by meat-eaters
+        file-write precision(system.gMeat.meate)3
+        ;; Amount of meat eaten by consumers: low vs mid-high income
+        file-write precision(system.gMeat.linc)3
+        file-write precision(system.gMeat.mhinc)3
+        ;; Amount of meat eaten by consumers: young vs adults
+        file-write precision(system.gMeat.young)3
+        file-write precision(system.gMeat.adults)3
+        ;; Amount of meat eaten by consumers: men vs women
+        file-write precision(system.gMeat.men)3
+        file-write precision(system.gMeat.women)3
+        ;; Amount of meat eaten by consumers: workers vs non-workers
+        file-write precision(system.gMeat.workers)3
+        file-write precision(system.gMeat.noworkers)3
+        file-print ""
+        file-close
+      ]
+    ]
+end
+
+;; Record in an external txt file the behaviour of agents with respect to their intention
+to report-int-beh-gap
+    if report-int-beh-gap?
+    [
+      if (file-exists? "MeatNet-report-int-beh-gap.txt" != TRUE)
+      [
+        file-open "MeatNet-report-int-beh-gap.txt"
+        file-write
+        (
+          list
+          "Timestamp" "tick" "who" "intention" "behaviour"
+        )
+        file-print ""
+      ]
+      ask turtles
+      [
+        file-open "MeatNet-report-int-beh-gap.txt"
+        file-write date-and-time
+        file-write ticks
+        file-write who
+        file-write ag.p.consume.meat
+        file-write beh
+        file-print ""
+        file-close
+      ]
+    ]
+end
+@#$#@#$#@
+GRAPHICS-WINDOW
+0
+0
+520
+541
+-1
+-1
+10.0
+1
+10
+1
+1
+1
+0
+1
+1
+1
+0
+50
+0
+50
+0
+50
+1
+1
+1
+ticks
+10.0
+
+BUTTON
+10
+10
+80
+43
+Setup
+Setup
+NIL
+1
+T
+OBSERVER
+NIL
+S
+NIL
+NIL
+1
+
+BUTTON
+220
+10
+275
+43
+Go2
+go2
+NIL
+1
+T
+OBSERVER
+NIL
+G
+NIL
+NIL
+1
+
+TEXTBOX
+10
+65
+195
+96
+Define and create networks\n
+14
+0.0
+1
+
+SWITCH
+77
+138
+208
+171
+work-SN?
+work-SN?
+0
+1
+-1000
+
+SWITCH
+78
+88
+209
+121
+family-SN?
+family-SN?
+0
+1
+-1000
+
+BUTTON
+715
+88
+780
+121
+Arrange
+build-layout\n
+NIL
+1
+T
+OBSERVER
+NIL
+A
+NIL
+NIL
+1
+
+MONITOR
+9
+88
+74
+133
+No. Fams
+N-families
+17
+1
+11
+
+CHOOSER
+432
+89
+524
+134
+Layout?
+Layout?
+"Open" "Circle" "NONE"
+2
+
+CHOOSER
+527
+89
+619
+134
+Network?
+Network?
+"Families" "Workplace" "Both" "N/A"
+3
+
+SWITCH
+620
+88
+710
+121
+Labels?
+Labels?
+1
+1
+-1000
+
+SLIDER
+5
+291
+205
+324
+%workers
+%workers
+0
+100
+0
+2.5
+1
+%
+HORIZONTAL
+
+MONITOR
+8
+138
+73
+183
+No. Teams
+N-Teams
+17
+1
+11
+
+SLIDER
+5
+331
+205
+364
+mean-team-size
+mean-team-size
+1
+9
+4
+1
+1
+agents
+HORIZONTAL
+
+SLIDER
+5
+371
+205
+404
+%interconnection
+%interconnection
+0
+100
+50
+5
+1
+% of team
+HORIZONTAL
+
+SWITCH
+433
+294
+523
+327
+seed?
+seed?
+0
+1
+-1000
+
+TEXTBOX
+623
+125
+738
+143
+Label: (Fam-ID; Team-ID)
+9
+0.0
+1
+
+MONITOR
+8
+190
+110
+235
+Work SN Density
+work-SN-density
+2
+1
+11
+
+MONITOR
+113
+190
+208
+235
+Work Clust Coeff
+work-SN-clustering-coefficient
+2
+1
+11
+
+BUTTON
+683
+140
+768
+173
+Eating labels
+ask turtles \n[ set label (word agent-family-ID \":\" home.eating? \", \" agent-team-ID \":\" work.eating? ) ]
+T
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+SLIDER
+225
+115
+420
+148
+meat.price.increase
+meat.price.increase
+1
+2
+1
+0.05
+1
+*100
+HORIZONTAL
+
+PLOT
+874
+116
+1199
+236
+p(consume.meat)
+NIL
+NIL
+0.0
+10.0
+0.4
+0.8
+true
+true
+"" ""
+PENS
+"mean.p" 1.0 0 -7500403 true "" ""
+"Low Income" 1.0 0 -8431303 true "" ""
+"Mid-High Income" 1.0 0 -955883 true "" ""
+
+MONITOR
+1099
+186
+1156
+231
+avg p()
+precision( mean [ag.p.consume.meat ] of turtles with [veg? = 1])3
+17
+1
+11
+
+SLIDER
+225
+405
+395
+438
+gamma.env
+gamma.env
+0
+.75
+0.5
+0.25
+1
+NIL
+HORIZONTAL
+
+SLIDER
+225
+445
+395
+478
+gamma.hlt
+gamma.hlt
+0
+0.75
+0
+0.25
+1
+NIL
+HORIZONTAL
+
+SLIDER
+225
+485
+395
+518
+gamma.awe
+gamma.awe
+0
+0.75
+0
+0.25
+1
+NIL
+HORIZONTAL
+
+MONITOR
+1205
+239
+1265
+284
+avg.env
+precision(mean [ag.env] of turtles)2
+17
+1
+11
+
+MONITOR
+1270
+239
+1330
+284
+avg.hlt
+precision(mean [ag.hlt] of turtles)2
+17
+1
+11
+
+MONITOR
+1334
+239
+1394
+284
+avg.awe
+precision(mean [ag.awe] of turtles)2
+17
+1
+11
+
+TEXTBOX
+225
+165
+375
+183
+Norm-based interventions
+11
+0.0
+1
+
+TEXTBOX
+225
+95
+325
+121
+Price increase
+11
+0.0
+1
+
+CHOOSER
+225
+225
+395
+270
+Int.Target
+Int.Target
+"N/A" "General audience" "Young 18-30" "Adults 30-65" "Elders 65+" "Env concerned" "Env unconcerned" "Health concerned" "Health unconcerned" "Awe unconcerned" "Only females" "Only males" "Flexitarians"
+5
+
+CHOOSER
+225
+275
+395
+320
+Int.Diffusion
+Int.Diffusion
+"N/A" "Widespread" "Only workplaces" "Households"
+2
+
+SLIDER
+225
+325
+395
+358
+SNI.Int.Length
+SNI.Int.Length
+0
+157
+157
+1
+1
+Weeks
+HORIZONTAL
+
+TEXTBOX
+230
+370
+410
+396
+Campaigns investments (0 = N/A)\n.25/.50/.75 = Small/Medium/Big
+11
+0.0
+1
+
+TEXTBOX
+431
+66
+651
+92
+Visualization
+14
+0.0
+1
+
+TEXTBOX
+225
+65
+375
+83
+Policies/Interventions
+14
+0.0
+1
+
+SWITCH
+225
+185
+377
+218
+SNI.YN.Active?
+SNI.YN.Active?
+1
+1
+-1000
+
+MONITOR
+1149
+186
+1199
+231
+%Veg*
+precision((count turtles with [veg? = 0] / count turtles) * 100)2
+17
+1
+11
+
+SWITCH
+6
+411
+112
+444
+ext-source?
+ext-source?
+0
+1
+-1000
+
+MONITOR
+873
+13
+930
+58
+#days
+days
+17
+1
+11
+
+MONITOR
+1051
+13
+1166
+58
+Current day
+current.day
+17
+1
+11
+
+BUTTON
+280
+10
+350
+43
+Run2
+Go2
+T
+1
+T
+OBSERVER
+NIL
+R
+NIL
+NIL
+1
+
+MONITOR
+933
+13
+988
+58
+#Week
+Weeks
+17
+1
+11
+
+SWITCH
+5
+246
+140
+279
+actual-workers?
+actual-workers?
+0
+1
+-1000
+
+MONITOR
+145
+241
+207
+286
+#workers
+count turtles with [worker? = TRUE]
+17
+1
+11
+
+MONITOR
+1169
+13
+1284
+58
+Current meal
+current.meal
+17
+1
+11
+
+SLIDER
+6
+448
+146
+481
+par.ext.source.max
+par.ext.source.max
+0.01
+1
+0.1
+0.01
+1
+NIL
+HORIZONTAL
+
+SWITCH
+618
+539
+805
+572
+Export-Consumers-Output?
+Export-Consumers-Output?
+1
+1
+-1000
+
+SWITCH
+432
+538
+607
+571
+Export-System-Output?
+Export-System-Output?
+1
+1
+-1000
+
+PLOT
+1206
+289
+1396
+409
+Time decay of campaign effects
+NIL
+NIL
+0.0
+10.0
+0.0
+1.0
+true
+true
+"" ""
+PENS
+"env" 1.0 2 -10899396 true "" "plot actual.gamma.env"
+"health" 1.0 2 -13345367 true "" "plot actual.gamma.hlt"
+"an.welf" 1.0 2 -7858858 true "" "plot actual.gamma.awe"
+
+BUTTON
+434
+227
+551
+260
+Labels=p(meat)
+ask turtles [set label precision(ag.p.consume.meat)2]
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+554
+227
+641
+260
+Mark veg*
+ask turtles with [veg? = 0] [set color lime set size 1.5 set shape \"plant\"]
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+MONITOR
+1205
+187
+1379
+232
+p(consume.meat) at time zeo
+precision(tzero.mean.p.consume.meat.noveg)2
+17
+1
+11
+
+BUTTON
+145
+10
+218
+43
+1year
+go2\nif ticks = 768 [stop]
+T
+1
+T
+OBSERVER
+NIL
+M
+NIL
+NIL
+1
+
+SWITCH
+432
+468
+607
+501
+Export-gMeat/Year?
+Export-gMeat/Year?
+1
+1
+-1000
+
+SWITCH
+432
+503
+607
+536
+Export-concerns/year?
+Export-concerns/year?
+1
+1
+-1000
+
+SWITCH
+618
+432
+805
+465
+Export-pMeat/year?
+Export-pMeat/year?
+1
+1
+-1000
+
+SWITCH
+619
+468
+805
+501
+Export-time.map?
+Export-time.map?
+1
+1
+-1000
+
+SWITCH
+565
+140
+681
+173
+show-size?
+show-size?
+1
+1
+-1000
+
+BUTTON
+432
+140
+561
+173
+NIL
+reset-perspective
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+CHOOSER
+433
+178
+571
+223
+Colours?
+Colours?
+"pMeat" "ag.env" "ag.hlt" "ag.awe"
+0
+
+BUTTON
+575
+178
+713
+211
+Refresh colours
+ask turtles [update-colours]
+NIL
+1
+T
+OBSERVER
+NIL
+C
+NIL
+NIL
+1
+
+SLIDER
+6
+485
+128
+518
+common.SI.agents
+common.SI.agents
+2
+30
+24
+2
+1
+NIL
+HORIZONTAL
+
+PLOT
+874
+239
+1201
+410
+Concerns
+NIL
+NIL
+0.0
+10.0
+1.0
+5.0
+true
+false
+"" ""
+PENS
+"ag.env" 1.0 0 -10899396 true "" "if ticks > 0 [plot mean [ag.env] of turtles]"
+"ag.hlt" 1.0 0 -13791810 true "" "if ticks > 0 [plot mean [ag.hlt] of turtles]"
+"ag.awe" 1.0 0 -8630108 true "" "if ticks > 0 [plot mean [ag.awe] of turtles]"
+"pen-3" 1.0 0 -13210332 true "" "if ticks > 0 [plot max [ag.env] of turtles]"
+"pen-4" 1.0 0 -5509967 true "" "if ticks > 0 [plot min[ag.env] of turtles]"
+"pen-5" 1.0 0 -14985354 true "" "if ticks > 0 [plot max [ag.hlt] of turtles]"
+"pen-6" 1.0 0 -8275240 true "" "if ticks > 0 [plot min [ag.hlt] of turtles]"
+"pen-7" 1.0 0 -11783835 true "" "if ticks > 0 [plot max [ag.awe] of turtles]"
+"pen-8" 1.0 0 -5204280 true "" "if ticks > 0 [plot min [ag.awe] of turtles]"
+
+MONITOR
+991
+13
+1048
+58
+Year
+current.year
+17
+1
+11
+
+MONITOR
+1038
+63
+1126
+108
+gMeat.breakfast
+precision(mean [ag.gMeat.break] of turtles with [veg? = 1])2
+17
+1
+11
+
+MONITOR
+1128
+63
+1213
+108
+gMeat.Lunch
+precision(mean [ag.gMeat.lunch] of turtles with [veg? = 1])2
+17
+1
+11
+
+MONITOR
+1216
+63
+1304
+108
+gMeat.Dinner
+precision(mean [ag.gMeat.dinner] of turtles with [veg? = 1])2
+17
+1
+11
+
+MONITOR
+963
+63
+1036
+108
+gMeat.day
+precision(mean [ag.gMeat.day] of turtles with [veg? = 1])2
+17
+1
+11
+
+SWITCH
+618
+503
+805
+536
+MeatNet-gMeat-EE-Report?
+MeatNet-gMeat-EE-Report?
+1
+1
+-1000
+
+MONITOR
+873
+63
+960
+108
+ag.gMeat.week
+precision(mean [ag.gMeat.week] of turtles with [veg? = 1])2
+17
+1
+11
+
+SWITCH
+432
+396
+639
+429
+MeatNet-gMeat-Weekly-Report?
+MeatNet-gMeat-Weekly-Report?
+0
+1
+-1000
+
+INPUTBOX
+520
+331
+694
+391
+Experiment.label
+1-Baseline
+1
+0
+String
+
+INPUTBOX
+433
+331
+516
+391
+Experiment.id
+1
+1
+0
+Number
+
+SWITCH
+225
+521
+341
+554
+SNI.cycle?
+SNI.cycle?
+1
+1
+-1000
+
+SWITCH
+432
+432
+608
+465
+Report-int-beh-gap?
+Report-int-beh-gap?
+1
+1
+-1000
+
+TEXTBOX
+433
+271
+583
+289
+Outputs
+14
+0.0
+1
+
+@#$#@#$#@
+## WHAT IS IT?
+
+**Title**: MeatNet (vers.1.0).
+
+**Abstract**: This simulation aim in reproducing peoples’ meat consumption behaviour in Britain using agent-based modelling. The agents represent individual consumers. The key variables that characterise agents include sex, age, monthly income, perception of the living cost, and concerns about the impact of meat on the environment, health, and animal welfare. A process of peer influence is modelled with respect to the agents’ concerns. Influence spreads across two eating networks (i.e. co-workers and household members) depending on the time of day, day of the week, and agents’ employment status. Data from a representative sample of British consumers is used to empirically ground the model. Different experiments are run simulating interventions of application of social marketing campaigns and a rise in price of meat. The main outcome is the average weekly consumption of meat per consumer. A secondary outcome is the likelihood of eating meat. Analyses are run on the overall artificial population and by subgroups.
+
+## HOW IT WORKS/HOW TO USE IT
+
+Full details are provided in the ODD+D protocol available in the CoMSES library along with the model. For further information, please email the main author (see CONTACTS section).
+
+Additional R scripts for the data analysise can be requested via email.
+
+## CONTACTS
+
+For further information or questions contact Andrea Scalco at andrea.scalco@abdn.ac.uk c/o The Rowett Institute - University of Aberdeen (Scotland, UK).
+@#$#@#$#@
+default
+true
+0
+Polygon -7500403 true true 150 5 40 250 150 205 260 250
+
+airplane
+true
+0
+Polygon -7500403 true true 150 0 135 15 120 60 120 105 15 165 15 195 120 180 135 240 105 270 120 285 150 270 180 285 210 270 165 240 180 180 285 195 285 165 180 105 180 60 165 15
+
+arrow
+true
+0
+Polygon -7500403 true true 150 0 0 150 105 150 105 293 195 293 195 150 300 150
+
+box
+false
+0
+Polygon -7500403 true true 150 285 285 225 285 75 150 135
+Polygon -7500403 true true 150 135 15 75 150 15 285 75
+Polygon -7500403 true true 15 75 15 225 150 285 150 135
+Line -16777216 false 150 285 150 135
+Line -16777216 false 150 135 15 75
+Line -16777216 false 150 135 285 75
+
+bug
+true
+0
+Circle -7500403 true true 96 182 108
+Circle -7500403 true true 110 127 80
+Circle -7500403 true true 110 75 80
+Line -7500403 true 150 100 80 30
+Line -7500403 true 150 100 220 30
+
+butterfly
+true
+0
+Polygon -7500403 true true 150 165 209 199 225 225 225 255 195 270 165 255 150 240
+Polygon -7500403 true true 150 165 89 198 75 225 75 255 105 270 135 255 150 240
+Polygon -7500403 true true 139 148 100 105 55 90 25 90 10 105 10 135 25 180 40 195 85 194 139 163
+Polygon -7500403 true true 162 150 200 105 245 90 275 90 290 105 290 135 275 180 260 195 215 195 162 165
+Polygon -16777216 true false 150 255 135 225 120 150 135 120 150 105 165 120 180 150 165 225
+Circle -16777216 true false 135 90 30
+Line -16777216 false 150 105 195 60
+Line -16777216 false 150 105 105 60
+
+car
+false
+0
+Polygon -7500403 true true 300 180 279 164 261 144 240 135 226 132 213 106 203 84 185 63 159 50 135 50 75 60 0 150 0 165 0 225 300 225 300 180
+Circle -16777216 true false 180 180 90
+Circle -16777216 true false 30 180 90
+Polygon -16777216 true false 162 80 132 78 134 135 209 135 194 105 189 96 180 89
+Circle -7500403 true true 47 195 58
+Circle -7500403 true true 195 195 58
+
+circle
+false
+0
+Circle -7500403 true true 0 0 300
+
+circle 2
+false
+0
+Circle -7500403 true true 0 0 300
+Circle -16777216 true false 30 30 240
+
+cow
+false
+0
+Polygon -7500403 true true 200 193 197 249 179 249 177 196 166 187 140 189 93 191 78 179 72 211 49 209 48 181 37 149 25 120 25 89 45 72 103 84 179 75 198 76 252 64 272 81 293 103 285 121 255 121 242 118 224 167
+Polygon -7500403 true true 73 210 86 251 62 249 48 208
+Polygon -7500403 true true 25 114 16 195 9 204 23 213 25 200 39 123
+
+cylinder
+false
+0
+Circle -7500403 true true 0 0 300
+
+dot
+false
+0
+Circle -7500403 true true 90 90 120
+
+face happy
+false
+0
+Circle -7500403 true true 8 8 285
+Circle -16777216 true false 60 75 60
+Circle -16777216 true false 180 75 60
+Polygon -16777216 true false 150 255 90 239 62 213 47 191 67 179 90 203 109 218 150 225 192 218 210 203 227 181 251 194 236 217 212 240
+
+face neutral
+false
+0
+Circle -7500403 true true 8 7 285
+Circle -16777216 true false 60 75 60
+Circle -16777216 true false 180 75 60
+Rectangle -16777216 true false 60 195 240 225
+
+face sad
+false
+0
+Circle -7500403 true true 8 8 285
+Circle -16777216 true false 60 75 60
+Circle -16777216 true false 180 75 60
+Polygon -16777216 true false 150 168 90 184 62 210 47 232 67 244 90 220 109 205 150 198 192 205 210 220 227 242 251 229 236 206 212 183
+
+fish
+false
+0
+Polygon -1 true false 44 131 21 87 15 86 0 120 15 150 0 180 13 214 20 212 45 166
+Polygon -1 true false 135 195 119 235 95 218 76 210 46 204 60 165
+Polygon -1 true false 75 45 83 77 71 103 86 114 166 78 135 60
+Polygon -7500403 true true 30 136 151 77 226 81 280 119 292 146 292 160 287 170 270 195 195 210 151 212 30 166
+Circle -16777216 true false 215 106 30
+
+flag
+false
+0
+Rectangle -7500403 true true 60 15 75 300
+Polygon -7500403 true true 90 150 270 90 90 30
+Line -7500403 true 75 135 90 135
+Line -7500403 true 75 45 90 45
+
+flower
+false
+0
+Polygon -10899396 true false 135 120 165 165 180 210 180 240 150 300 165 300 195 240 195 195 165 135
+Circle -7500403 true true 85 132 38
+Circle -7500403 true true 130 147 38
+Circle -7500403 true true 192 85 38
+Circle -7500403 true true 85 40 38
+Circle -7500403 true true 177 40 38
+Circle -7500403 true true 177 132 38
+Circle -7500403 true true 70 85 38
+Circle -7500403 true true 130 25 38
+Circle -7500403 true true 96 51 108
+Circle -16777216 true false 113 68 74
+Polygon -10899396 true false 189 233 219 188 249 173 279 188 234 218
+Polygon -10899396 true false 180 255 150 210 105 210 75 240 135 240
+
+house
+false
+0
+Rectangle -7500403 true true 45 120 255 285
+Rectangle -16777216 true false 120 210 180 285
+Polygon -7500403 true true 15 120 150 15 285 120
+Line -16777216 false 30 120 270 120
+
+leaf
+false
+0
+Polygon -7500403 true true 150 210 135 195 120 210 60 210 30 195 60 180 60 165 15 135 30 120 15 105 40 104 45 90 60 90 90 105 105 120 120 120 105 60 120 60 135 30 150 15 165 30 180 60 195 60 180 120 195 120 210 105 240 90 255 90 263 104 285 105 270 120 285 135 240 165 240 180 270 195 240 210 180 210 165 195
+Polygon -7500403 true true 135 195 135 240 120 255 105 255 105 285 135 285 165 240 165 195
+
+line
+true
+0
+Line -7500403 true 150 0 150 300
+
+line half
+true
+0
+Line -7500403 true 150 0 150 150
+
+pentagon
+false
+0
+Polygon -7500403 true true 150 15 15 120 60 285 240 285 285 120
+
+person
+false
+0
+Circle -7500403 true true 110 5 80
+Polygon -7500403 true true 105 90 120 195 90 285 105 300 135 300 150 225 165 300 195 300 210 285 180 195 195 90
+Rectangle -7500403 true true 127 79 172 94
+Polygon -7500403 true true 195 90 240 150 225 180 165 105
+Polygon -7500403 true true 105 90 60 150 75 180 135 105
+
+plant
+false
+0
+Rectangle -7500403 true true 135 90 165 300
+Polygon -7500403 true true 135 255 90 210 45 195 75 255 135 285
+Polygon -7500403 true true 165 255 210 210 255 195 225 255 165 285
+Polygon -7500403 true true 135 180 90 135 45 120 75 180 135 210
+Polygon -7500403 true true 165 180 165 210 225 180 255 120 210 135
+Polygon -7500403 true true 135 105 90 60 45 45 75 105 135 135
+Polygon -7500403 true true 165 105 165 135 225 105 255 45 210 60
+Polygon -7500403 true true 135 90 120 45 150 15 180 45 165 90
+
+sheep
+false
+15
+Circle -1 true true 203 65 88
+Circle -1 true true 70 65 162
+Circle -1 true true 150 105 120
+Polygon -7500403 true false 218 120 240 165 255 165 278 120
+Circle -7500403 true false 214 72 67
+Rectangle -1 true true 164 223 179 298
+Polygon -1 true true 45 285 30 285 30 240 15 195 45 210
+Circle -1 true true 3 83 150
+Rectangle -1 true true 65 221 80 296
+Polygon -1 true true 195 285 210 285 210 240 240 210 195 210
+Polygon -7500403 true false 276 85 285 105 302 99 294 83
+Polygon -7500403 true false 219 85 210 105 193 99 201 83
+
+square
+false
+0
+Rectangle -7500403 true true 30 30 270 270
+
+square 2
+false
+0
+Rectangle -7500403 true true 30 30 270 270
+Rectangle -16777216 true false 60 60 240 240
+
+star
+false
+0
+Polygon -7500403 true true 151 1 185 108 298 108 207 175 242 282 151 216 59 282 94 175 3 108 116 108
+
+target
+false
+0
+Circle -7500403 true true 0 0 300
+Circle -16777216 true false 30 30 240
+Circle -7500403 true true 60 60 180
+Circle -16777216 true false 90 90 120
+Circle -7500403 true true 120 120 60
+
+tree
+false
+0
+Circle -7500403 true true 118 3 94
+Rectangle -6459832 true false 120 195 180 300
+Circle -7500403 true true 65 21 108
+Circle -7500403 true true 116 41 127
+Circle -7500403 true true 45 90 120
+Circle -7500403 true true 104 74 152
+
+triangle
+false
+0
+Polygon -7500403 true true 150 30 15 255 285 255
+
+triangle 2
+false
+0
+Polygon -7500403 true true 150 30 15 255 285 255
+Polygon -16777216 true false 151 99 225 223 75 224
+
+truck
+false
+0
+Rectangle -7500403 true true 4 45 195 187
+Polygon -7500403 true true 296 193 296 150 259 134 244 104 208 104 207 194
+Rectangle -1 true false 195 60 195 105
+Polygon -16777216 true false 238 112 252 141 219 141 218 112
+Circle -16777216 true false 234 174 42
+Rectangle -7500403 true true 181 185 214 194
+Circle -16777216 true false 144 174 42
+Circle -16777216 true false 24 174 42
+Circle -7500403 false true 24 174 42
+Circle -7500403 false true 144 174 42
+Circle -7500403 false true 234 174 42
+
+turtle
+true
+0
+Polygon -10899396 true false 215 204 240 233 246 254 228 266 215 252 193 210
+Polygon -10899396 true false 195 90 225 75 245 75 260 89 269 108 261 124 240 105 225 105 210 105
+Polygon -10899396 true false 105 90 75 75 55 75 40 89 31 108 39 124 60 105 75 105 90 105
+Polygon -10899396 true false 132 85 134 64 107 51 108 17 150 2 192 18 192 52 169 65 172 87
+Polygon -10899396 true false 85 204 60 233 54 254 72 266 85 252 107 210
+Polygon -7500403 true true 119 75 179 75 209 101 224 135 220 225 175 261 128 261 81 224 74 135 88 99
+
+wheel
+false
+0
+Circle -7500403 true true 3 3 294
+Circle -16777216 true false 30 30 240
+Line -7500403 true 150 285 150 15
+Line -7500403 true 15 150 285 150
+Circle -7500403 true true 120 120 60
+Line -7500403 true 216 40 79 269
+Line -7500403 true 40 84 269 221
+Line -7500403 true 40 216 269 79
+Line -7500403 true 84 40 221 269
+
+wolf
+false
+0
+Polygon -16777216 true false 253 133 245 131 245 133
+Polygon -7500403 true true 2 194 13 197 30 191 38 193 38 205 20 226 20 257 27 265 38 266 40 260 31 253 31 230 60 206 68 198 75 209 66 228 65 243 82 261 84 268 100 267 103 261 77 239 79 231 100 207 98 196 119 201 143 202 160 195 166 210 172 213 173 238 167 251 160 248 154 265 169 264 178 247 186 240 198 260 200 271 217 271 219 262 207 258 195 230 192 198 210 184 227 164 242 144 259 145 284 151 277 141 293 140 299 134 297 127 273 119 270 105
+Polygon -7500403 true true -1 195 14 180 36 166 40 153 53 140 82 131 134 133 159 126 188 115 227 108 236 102 238 98 268 86 269 92 281 87 269 103 269 113
+
+x
+false
+0
+Polygon -7500403 true true 270 75 225 30 30 225 75 270
+Polygon -7500403 true true 30 75 75 30 270 225 225 270
+
+@#$#@#$#@
+NetLogo 3D 5.3.1
+@#$#@#$#@
+@#$#@#$#@
+@#$#@#$#@
+<experiments>
+  <experiment name="Baseline(Sample1)" repetitions="100" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go2</go>
+    <enumeratedValueSet variable="common.SI.agents">
+      <value value="25"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="seed?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Network?">
+      <value value="&quot;N/A&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="show-size?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="blocknotes?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="count-family-size?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Layout?">
+      <value value="&quot;NONE&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Labels?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="plotbyincome?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="plotbysex?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="family-SN?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="work-SN?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Colours?">
+      <value value="&quot;ag.awe&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-System-Output?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-Consumers-Output?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-concerns/year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-pMeat/year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-gMeat/Year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-time.map?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="actual-workers?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="%workers">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="mean-team-size">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="%interconnection">
+      <value value="50"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meat.price.increase">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.YN.Active?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Int.Target">
+      <value value="&quot;N/A&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Int.Diffusion">
+      <value value="&quot;N/A&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.Int.Length">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.env">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.hlt">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.awe">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MeatNet-gMeat-EE-Report?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MeatNet-gMeat-Weekly-Report?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Experiment.id">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Experiment.label">
+      <value value="&quot;1-Baseline&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.cycle?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="ext-source?">
+      <value value="true"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="Baseline(Sample1)-par.ext.source.max" repetitions="100" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go2</go>
+    <enumeratedValueSet variable="common.SI.agents">
+      <value value="25"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="seed?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Network?">
+      <value value="&quot;N/A&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="show-size?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="blocknotes?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="count-family-size?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Layout?">
+      <value value="&quot;NONE&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Labels?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="plotbyincome?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="plotbysex?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="family-SN?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="work-SN?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Colours?">
+      <value value="&quot;ag.awe&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-System-Output?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-Consumers-Output?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-concerns/year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-pMeat/year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-gMeat/Year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-time.map?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="actual-workers?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="%workers">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="mean-team-size">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="%interconnection">
+      <value value="50"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meat.price.increase">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.YN.Active?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Int.Target">
+      <value value="&quot;N/A&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Int.Diffusion">
+      <value value="&quot;N/A&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.Int.Length">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.env">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.hlt">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.awe">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MeatNet-gMeat-EE-Report?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MeatNet-gMeat-Weekly-Report?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.cycle?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="ext-source?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <steppedValueSet variable="par.ext.source.max" first="0.03" step="0.01" last="0.1"/>
+  </experiment>
+  <experiment name="Experiments-Set_1" repetitions="100" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go2</go>
+    <enumeratedValueSet variable="blocknotes?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-gMeat/Year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MeatNet-gMeat-EE-Report?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-time.map?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-concerns/year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-pMeat/year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-Consumers-Output?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-System-Output?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Report-int-beh-gap?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="family-SN?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="work-SN?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="actual-workers?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="%workers">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="par.veg.threshold">
+      <value value="0.15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="mean-team-size">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="%interconnection">
+      <value value="50"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="common.SI.agents">
+      <value value="25"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Network?">
+      <value value="&quot;N/A&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Colours?">
+      <value value="&quot;ag.awe&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="show-size?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="count-family-size?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Layout?">
+      <value value="&quot;NONE&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Labels?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="plotbyincome?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="plotbysex?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="seed?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="ext-source?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="par.ext.source.max">
+      <value value="0.1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meat.price.increase">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.YN.Active?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.Int.Length">
+      <value value="156"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.cycle?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Int.Target">
+      <value value="&quot;General audience&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Int.Diffusion">
+      <value value="&quot;Widespread&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.env">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.awe">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.hlt">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MeatNet-gMeat-Weekly-Report?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Experiment.id">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Experiment.label">
+      <value value="&quot;5-SM_Health&quot;"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="Experiments-Set_2" repetitions="100" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go2</go>
+    <enumeratedValueSet variable="blocknotes?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-gMeat/Year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MeatNet-gMeat-EE-Report?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-time.map?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-concerns/year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-pMeat/year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-Consumers-Output?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-System-Output?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Report-int-beh-gap?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="family-SN?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="work-SN?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="actual-workers?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="%workers">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="par.veg.threshold">
+      <value value="0.15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="mean-team-size">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="%interconnection">
+      <value value="50"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="common.SI.agents">
+      <value value="25"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Network?">
+      <value value="&quot;N/A&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Colours?">
+      <value value="&quot;ag.awe&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="show-size?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="count-family-size?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Layout?">
+      <value value="&quot;NONE&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Labels?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="plotbyincome?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="plotbysex?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="seed?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="ext-source?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="par.ext.source.max">
+      <value value="0.1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meat.price.increase">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.YN.Active?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.Int.Length">
+      <value value="156"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.cycle?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Int.Target">
+      <value value="&quot;Elders 65+&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Int.Diffusion">
+      <value value="&quot;Widespread&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.env">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.awe">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.hlt">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MeatNet-gMeat-Weekly-Report?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Experiment.id">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Experiment.label">
+      <value value="&quot;3-Elders&quot;"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="Experiments-Set_3" repetitions="100" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go2</go>
+    <enumeratedValueSet variable="blocknotes?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-gMeat/Year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MeatNet-gMeat-EE-Report?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-time.map?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-concerns/year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-pMeat/year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-Consumers-Output?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-System-Output?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Report-int-beh-gap?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="family-SN?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="work-SN?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="actual-workers?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="%workers">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="par.veg.threshold">
+      <value value="0.15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="mean-team-size">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="%interconnection">
+      <value value="50"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="common.SI.agents">
+      <value value="25"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Network?">
+      <value value="&quot;N/A&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Colours?">
+      <value value="&quot;ag.awe&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="show-size?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="count-family-size?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Layout?">
+      <value value="&quot;NONE&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Labels?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="plotbyincome?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="plotbysex?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="seed?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="ext-source?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="par.ext.source.max">
+      <value value="0.1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meat.price.increase">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.YN.Active?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.Int.Length">
+      <value value="156"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.cycle?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Int.Target">
+      <value value="&quot;Env unconcerned&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Int.Diffusion">
+      <value value="&quot;Widespread&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.env">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.awe">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.hlt">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MeatNet-gMeat-Weekly-Report?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Experiment.id">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Experiment.label">
+      <value value="&quot;3-SM_Env.Unconcerned&quot;"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="Experiment-ESSA19-2-Env-Once" repetitions="100" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go2</go>
+    <enumeratedValueSet variable="common.SI.agents">
+      <value value="25"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="seed?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Network?">
+      <value value="&quot;N/A&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="show-size?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="blocknotes?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="count-family-size?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Layout?">
+      <value value="&quot;NONE&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Labels?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="plotbyincome?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="plotbysex?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="family-SN?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="work-SN?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Colours?">
+      <value value="&quot;ag.awe&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-System-Output?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-Consumers-Output?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-concerns/year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-pMeat/year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-gMeat/Year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-time.map?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="actual-workers?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="%workers">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="mean-team-size">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="%interconnection">
+      <value value="50"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meat.price.increase">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.YN.Active?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Int.Target">
+      <value value="&quot;General audience&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Int.Diffusion">
+      <value value="&quot;Widespread&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.Int.Length">
+      <value value="82"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.env">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.hlt">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.awe">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MeatNet-gMeat-EE-Report?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MeatNet-gMeat-Weekly-Report?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Experiment.id">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Experiment.label">
+      <value value="&quot;2-SMC_Environment_Once&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.cycle?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="ext-source?">
+      <value value="true"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="Experiment-ESSA19-3-Health-Once" repetitions="100" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go2</go>
+    <enumeratedValueSet variable="common.SI.agents">
+      <value value="25"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="seed?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Network?">
+      <value value="&quot;N/A&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="show-size?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="blocknotes?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="count-family-size?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Layout?">
+      <value value="&quot;NONE&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Labels?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="plotbyincome?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="plotbysex?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="family-SN?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="work-SN?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Colours?">
+      <value value="&quot;ag.awe&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-System-Output?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-Consumers-Output?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-concerns/year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-pMeat/year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-gMeat/Year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-time.map?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="actual-workers?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="%workers">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="mean-team-size">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="%interconnection">
+      <value value="50"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meat.price.increase">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.YN.Active?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Int.Target">
+      <value value="&quot;General audience&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Int.Diffusion">
+      <value value="&quot;Widespread&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.Int.Length">
+      <value value="82"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.env">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.hlt">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.awe">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MeatNet-gMeat-EE-Report?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MeatNet-gMeat-Weekly-Report?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Experiment.id">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Experiment.label">
+      <value value="&quot;3-SMC_Health_Once&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.cycle?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="ext-source?">
+      <value value="true"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="Experiment-ESSA19-4-AnWel-Once" repetitions="100" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go2</go>
+    <enumeratedValueSet variable="common.SI.agents">
+      <value value="25"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="seed?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Network?">
+      <value value="&quot;N/A&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="show-size?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="blocknotes?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="count-family-size?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Layout?">
+      <value value="&quot;NONE&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Labels?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="plotbyincome?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="plotbysex?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="family-SN?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="work-SN?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Colours?">
+      <value value="&quot;ag.awe&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-System-Output?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-Consumers-Output?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-concerns/year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-pMeat/year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-gMeat/Year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-time.map?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="actual-workers?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="%workers">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="mean-team-size">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="%interconnection">
+      <value value="50"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meat.price.increase">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.YN.Active?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Int.Target">
+      <value value="&quot;General audience&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Int.Diffusion">
+      <value value="&quot;Widespread&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.Int.Length">
+      <value value="82"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.env">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.hlt">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.awe">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MeatNet-gMeat-EE-Report?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MeatNet-gMeat-Weekly-Report?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Experiment.id">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Experiment.label">
+      <value value="&quot;4-SMC_An.Welfare_Once&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.cycle?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="ext-source?">
+      <value value="true"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="Experiment-ESSA19-2-Env-Recurrent" repetitions="100" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go2</go>
+    <enumeratedValueSet variable="common.SI.agents">
+      <value value="25"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="seed?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Network?">
+      <value value="&quot;N/A&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="show-size?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="blocknotes?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="count-family-size?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Layout?">
+      <value value="&quot;NONE&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Labels?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="plotbyincome?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="plotbysex?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="family-SN?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="work-SN?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Colours?">
+      <value value="&quot;ag.awe&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-System-Output?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-Consumers-Output?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-concerns/year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-pMeat/year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-gMeat/Year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-time.map?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="actual-workers?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="%workers">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="mean-team-size">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="%interconnection">
+      <value value="50"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meat.price.increase">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.YN.Active?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Int.Target">
+      <value value="&quot;General audience&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Int.Diffusion">
+      <value value="&quot;Widespread&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.Int.Length">
+      <value value="157"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.env">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.hlt">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.awe">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MeatNet-gMeat-EE-Report?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MeatNet-gMeat-Weekly-Report?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Experiment.id">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Experiment.label">
+      <value value="&quot;5-SMC_Environment_Recurrent&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.cycle?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="ext-source?">
+      <value value="true"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="Experiment-ESSA19-3-Health-Recurrent" repetitions="100" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go2</go>
+    <enumeratedValueSet variable="common.SI.agents">
+      <value value="25"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="seed?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Network?">
+      <value value="&quot;N/A&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="show-size?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="blocknotes?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="count-family-size?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Layout?">
+      <value value="&quot;NONE&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Labels?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="plotbyincome?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="plotbysex?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="family-SN?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="work-SN?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Colours?">
+      <value value="&quot;ag.awe&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-System-Output?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-Consumers-Output?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-concerns/year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-pMeat/year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-gMeat/Year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-time.map?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="actual-workers?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="%workers">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="mean-team-size">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="%interconnection">
+      <value value="50"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meat.price.increase">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.YN.Active?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Int.Target">
+      <value value="&quot;General audience&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Int.Diffusion">
+      <value value="&quot;Widespread&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.Int.Length">
+      <value value="157"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.env">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.hlt">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.awe">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MeatNet-gMeat-EE-Report?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MeatNet-gMeat-Weekly-Report?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Experiment.id">
+      <value value="6"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Experiment.label">
+      <value value="&quot;6-SMC_Health_Recurrent&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.cycle?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="ext-source?">
+      <value value="true"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="Experiment-ESSA19-4-AnWel-Recurrent" repetitions="100" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go2</go>
+    <enumeratedValueSet variable="common.SI.agents">
+      <value value="25"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="seed?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Network?">
+      <value value="&quot;N/A&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="show-size?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="blocknotes?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="count-family-size?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Layout?">
+      <value value="&quot;NONE&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Labels?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="plotbyincome?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="plotbysex?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="family-SN?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="work-SN?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Colours?">
+      <value value="&quot;ag.awe&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-System-Output?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-Consumers-Output?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-concerns/year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-pMeat/year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-gMeat/Year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-time.map?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="actual-workers?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="%workers">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="mean-team-size">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="%interconnection">
+      <value value="50"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meat.price.increase">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.YN.Active?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Int.Target">
+      <value value="&quot;General audience&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Int.Diffusion">
+      <value value="&quot;Widespread&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.Int.Length">
+      <value value="157"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.env">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.hlt">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.awe">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MeatNet-gMeat-EE-Report?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MeatNet-gMeat-Weekly-Report?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Experiment.id">
+      <value value="7"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Experiment.label">
+      <value value="&quot;7-SMC_An.Welfare_Recurrent&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.cycle?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="ext-source?">
+      <value value="true"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="Experiment-ESSA19-2-Env-Backfire_1" repetitions="100" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go2</go>
+    <enumeratedValueSet variable="common.SI.agents">
+      <value value="25"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="seed?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Network?">
+      <value value="&quot;N/A&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="show-size?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="blocknotes?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="count-family-size?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Layout?">
+      <value value="&quot;NONE&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Labels?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="plotbyincome?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="plotbysex?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="family-SN?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="work-SN?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Colours?">
+      <value value="&quot;ag.awe&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-System-Output?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-Consumers-Output?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-concerns/year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-pMeat/year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-gMeat/Year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-time.map?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="actual-workers?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="%workers">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="mean-team-size">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="%interconnection">
+      <value value="50"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meat.price.increase">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.YN.Active?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Int.Target">
+      <value value="&quot;General audience&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Int.Diffusion">
+      <value value="&quot;Only workplaces&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.Int.Length">
+      <value value="157"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.env">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.hlt">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.awe">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MeatNet-gMeat-EE-Report?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MeatNet-gMeat-Weekly-Report?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Experiment.id">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Experiment.label">
+      <value value="&quot;2-SMC_Environment_AllWorkers&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.cycle?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="ext-source?">
+      <value value="true"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="Experiment-ESSA19-2-Env-Backfire_2" repetitions="100" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go2</go>
+    <enumeratedValueSet variable="common.SI.agents">
+      <value value="25"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="seed?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Network?">
+      <value value="&quot;N/A&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="show-size?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="blocknotes?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="count-family-size?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Layout?">
+      <value value="&quot;NONE&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Labels?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="plotbyincome?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="plotbysex?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="family-SN?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="work-SN?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Colours?">
+      <value value="&quot;ag.awe&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-System-Output?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-Consumers-Output?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-concerns/year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-pMeat/year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-gMeat/Year?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Export-time.map?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="actual-workers?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="%workers">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="mean-team-size">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="%interconnection">
+      <value value="50"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="meat.price.increase">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.YN.Active?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Int.Target">
+      <value value="&quot;Env concerned&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Int.Diffusion">
+      <value value="&quot;Only workplaces&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.Int.Length">
+      <value value="157"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.env">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.hlt">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma.awe">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MeatNet-gMeat-EE-Report?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MeatNet-gMeat-Weekly-Report?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Experiment.id">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Experiment.label">
+      <value value="&quot;3-SMC_Environment_ECWorkers&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SNI.cycle?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="ext-source?">
+      <value value="true"/>
+    </enumeratedValueSet>
+  </experiment>
+</experiments>
+@#$#@#$#@
+@#$#@#$#@
+default
+0.0
+-0.2 0 0.0 1.0
+0.0 1 1.0 0.0
+0.2 0 0.0 1.0
+link direction
+true
+0
+Line -7500403 true 150 150 90 180
+Line -7500403 true 150 150 210 180
+
+@#$#@#$#@
+0
+@#$#@#$#@
